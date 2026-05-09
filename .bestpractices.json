@@ -1,0 +1,294 @@
+{
+  "_comment": "Pre-filled answers for OpenSSF Best Practices Badge (passing level). The badge service auto-reads this file when the maintainer registers the project. See https://github.com/coreinfrastructure/best-practices-badge/blob/main/docs/bestpractices-json.md",
+
+  "description_good": {
+    "status": "Met",
+    "justification": "README.md opens with a one-paragraph summary: \"A single-binary Model Context Protocol server (and CLI) that converts AI-generated markdown into valid Slack Block Kit JSON. Credential-free, runs over stdio, ships as a static Go binary.\""
+  },
+  "interact": {
+    "status": "Met",
+    "justification": "README.md documents install (Homebrew/go install/prebuilt), usage (CLI + Claude Desktop config), feedback (GitHub Issues), and contribution (CONTRIBUTING.md)."
+  },
+  "contribution": {
+    "status": "Met",
+    "justification": "CONTRIBUTING.md describes the contribution process end-to-end: branch naming, conventional commits, tests + ≥80% coverage on changed packages, lefthook hooks, PR review.",
+    "url": "https://github.com/hishamkaram/mcp-slack-block-kit/blob/main/CONTRIBUTING.md"
+  },
+  "contribution_requirements": {
+    "status": "Met",
+    "justification": "CONTRIBUTING.md states explicit requirements: tests required for every change, coverage gate ≥80% on shipped packages, conventional commits enforced by lefthook commit-msg hook, golangci-lint clean.",
+    "url": "https://github.com/hishamkaram/mcp-slack-block-kit/blob/main/CONTRIBUTING.md"
+  },
+
+  "floss_license": {
+    "status": "Met",
+    "justification": "MIT License — see LICENSE file at repo root."
+  },
+  "floss_license_osi": {
+    "status": "Met",
+    "justification": "MIT License is OSI-approved (https://opensource.org/license/mit)."
+  },
+  "license_location": {
+    "status": "Met",
+    "justification": "LICENSE file at the repository root.",
+    "url": "https://github.com/hishamkaram/mcp-slack-block-kit/blob/main/LICENSE"
+  },
+
+  "documentation_basics": {
+    "status": "Met",
+    "justification": "README.md documents what the project is, how to install, how to invoke the MCP server from Claude Desktop / Cursor / etc., and the CLI subcommand. SECURITY.md documents the threat model. CONTRIBUTING.md documents the development workflow. docs/CLAUDE-architecture.md documents internal architecture."
+  },
+  "documentation_interface": {
+    "status": "Met",
+    "justification": "Two external interfaces documented: (1) the 5 MCP tools — schemas auto-generated from Go types via the modelcontextprotocol/go-sdk reflection, callable by any MCP client; (2) the public Go library at github.com/hishamkaram/mcp-slack-block-kit/block_kit, with godoc at https://pkg.go.dev/github.com/hishamkaram/mcp-slack-block-kit/block_kit. CLI flags documented in README.md and via `mcp-slack-block-kit convert --help`."
+  },
+
+  "sites_https": {
+    "status": "Met",
+    "justification": "All project URLs are HTTPS: github.com (TLS-enforced), pkg.go.dev (TLS), scorecard.dev (TLS), goreportcard.com (TLS)."
+  },
+  "discussion": {
+    "status": "Met",
+    "justification": "GitHub Issues at https://github.com/hishamkaram/mcp-slack-block-kit/issues. Each issue has a stable URL, full search, and threaded comments."
+  },
+  "english": {
+    "status": "Met",
+    "justification": "README.md, CONTRIBUTING.md, SECURITY.md, CHANGELOG.md, and all source comments are in English. Issue templates are in English."
+  },
+  "maintained": {
+    "status": "Met",
+    "justification": "Active development: v0.1.0 released 2026-05-09 (the day this entry was created). Repository is not archived; no DEPRECATED markers."
+  },
+
+  "repo_public": {
+    "status": "Met",
+    "justification": "https://github.com/hishamkaram/mcp-slack-block-kit"
+  },
+  "repo_track": {
+    "status": "Met",
+    "justification": "Git, hosted on GitHub. Every commit records author, committer, timestamp, parent commit, and signed (where applicable)."
+  },
+  "repo_interim": {
+    "status": "Met",
+    "justification": "All commits between releases are visible on the main branch — see https://github.com/hishamkaram/mcp-slack-block-kit/commits/main"
+  },
+  "repo_distributed": {
+    "status": "Met",
+    "justification": "Git is the canonical distributed VCS."
+  },
+
+  "version_unique": {
+    "status": "Met",
+    "justification": "Git tags follow vMAJOR.MINOR.PATCH (vX.Y.Z); each release has a unique tag. v0.1.0 is the first published tag."
+  },
+  "version_semver": {
+    "status": "Met",
+    "justification": "Semantic Versioning. CHANGELOG.md states: \"this project adheres to Semantic Versioning (https://semver.org/)\"."
+  },
+  "version_tags": {
+    "status": "Met",
+    "justification": "Git tags are signed (SSH-ed25519 signature; see `git cat-file -p v0.1.0`). Tags are available at https://github.com/hishamkaram/mcp-slack-block-kit/tags"
+  },
+
+  "release_notes": {
+    "status": "Met",
+    "justification": "CHANGELOG.md follows the Keep a Changelog 1.1.1 format. The GitHub Release page (https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.1.0) embeds polished, human-readable release notes generated by GoReleaser including install + verification steps."
+  },
+  "release_notes_vulns": {
+    "status": "N/A",
+    "justification": "v0.1.0 is the first release; no prior versions had vulnerabilities to fix. Future releases that fix vulnerabilities will record them in CHANGELOG.md `### Security` per Keep a Changelog convention."
+  },
+
+  "report_process": {
+    "status": "Met",
+    "justification": "SECURITY.md documents the security report process (GitHub Private Vulnerability Reporting + email fallback). General bug reports: GitHub Issues, with a structured template at .github/ISSUE_TEMPLATE/bug_report.yml that asks for version, install method, repro steps, expected vs actual behavior."
+  },
+  "report_tracker": {
+    "status": "Met",
+    "justification": "GitHub Issues at https://github.com/hishamkaram/mcp-slack-block-kit/issues."
+  },
+  "report_responses": {
+    "status": "?",
+    "justification": "v0.1.0 is the first public release; no historical bug-report response data yet. Will become Met as the project accumulates response history."
+  },
+  "enhancement_responses": {
+    "status": "?",
+    "justification": "v0.1.0 is the first public release; no historical enhancement-request response data yet. Will become Met as the project accumulates response history."
+  },
+  "report_archive": {
+    "status": "Met",
+    "justification": "GitHub Issues are publicly archived and searchable forever (open + closed)."
+  },
+
+  "vulnerability_report_process": {
+    "status": "Met",
+    "justification": "SECURITY.md documents the vulnerability report process. URL: https://github.com/hishamkaram/mcp-slack-block-kit/blob/main/SECURITY.md"
+  },
+  "vulnerability_report_private": {
+    "status": "Met",
+    "justification": "GitHub Private Vulnerability Reporting (PVR) is the preferred channel: https://github.com/hishamkaram/mcp-slack-block-kit/security/advisories/new — creates a private advisory only the maintainer can see. Email fallback (hishamwaleedkaram@gmail.com) is also documented."
+  },
+  "vulnerability_report_response": {
+    "status": "Met",
+    "justification": "SECURITY.md commits to acknowledgement within 72 hours of receipt and triage decision within 7 days — both well inside the required 14-day window."
+  },
+
+  "build": {
+    "status": "Met",
+    "justification": "`make build` produces the binary; `make snapshot` produces multi-arch release artifacts via GoReleaser. CI runs `go build ./...` on every commit."
+  },
+  "build_common_tools": {
+    "status": "Met",
+    "justification": "Go toolchain (go build) + GoReleaser. Both are widely used in the Go ecosystem."
+  },
+  "build_floss_tools": {
+    "status": "Met",
+    "justification": "Go toolchain (BSD-3-Clause), GoReleaser (MIT), make (GPLv3). All FLOSS."
+  },
+
+  "test": {
+    "status": "Met",
+    "justification": "Go's standard testing package. 293 tests across 7 packages, all FLOSS."
+  },
+  "test_invocation": {
+    "status": "Met",
+    "justification": "`go test ./...` or `make test` invokes the entire suite. Documented in CONTRIBUTING.md and CLAUDE.md."
+  },
+  "test_most": {
+    "status": "Met",
+    "justification": "Statement coverage on every shipped package: block_kit 87.5%, internal/converter 91.8%, internal/preview 80.0%, internal/server 85.4%, internal/splitter 85.2%, internal/validator 89.3%, cmd/mcp-slack-block-kit 80.8%. Coverage gate enforced in CI at ≥80% overall."
+  },
+  "test_continuous_integration": {
+    "status": "Met",
+    "justification": "GitHub Actions CI workflow at .github/workflows/ci.yml runs build + race tests + lint + govulncheck + fuzz-smoke + goreleaser-check on every push and pull_request to main."
+  },
+
+  "test_policy": {
+    "status": "Met",
+    "justification": "CONTRIBUTING.md states: \"every change has at least one test\" and the project's CLAUDE.md memory enforces \"unit tests required for everything.\" CI fails the build if coverage drops below 80%."
+  },
+  "tests_are_added": {
+    "status": "Met",
+    "justification": "Recent example: nested-element split-emit fix (commit 8e7cf62) added internal/converter/nested_test.go with 6 patterns × 3 modes, plus a cross-cutting Offset-continuation test, and a TestNested_PrintBuilderURLs fixture for manual visual verification."
+  },
+  "tests_documented_added": {
+    "status": "Met",
+    "justification": "CONTRIBUTING.md `Tests` section documents the testing policy."
+  },
+
+  "warnings": {
+    "status": "Met",
+    "justification": "golangci-lint v2 enabled in CI with: errcheck, govet, staticcheck, ineffassign, unused, gocritic, revive, misspell, gosec. `go vet` runs as a separate CI step. govulncheck runs in CI and pre-push."
+  },
+  "warnings_fixed": {
+    "status": "Met",
+    "justification": "`golangci-lint run ./...` reports 0 issues on the main branch."
+  },
+  "warnings_strict": {
+    "status": "Met",
+    "justification": "Bundles 9 linters under golangci-lint v2 (revive, staticcheck, gosec, gocritic, errcheck, govet, ineffassign, unused, misspell). gosec G304 is excluded with a documented justification (no user-controlled file paths in production code). One revive `var-naming` exclusion path-scoped to block_kit/ for the documented underscore in package name."
+  },
+
+  "know_secure_design": {
+    "status": "Met",
+    "justification": "Documented security-critical paths in SECURITY.md and .claude/rules/security.md: mention sanitization (entity-escape `&<>` to prevent broadcast injection), input bounding (MaxInputBytes default 256 KiB to prevent memory exhaustion), Block Kit Builder URL injection (full payload through url.QueryEscape, no fragment escape via JSON encoder alone). Conformance suite TestSanitization_BroadcastForms_AllEscapedByDefault enforces these."
+  },
+  "know_common_errors": {
+    "status": "Met",
+    "justification": "The threat model in SECURITY.md addresses the project-specific top vulnerability class (untrusted markdown injection via AI-generated content). Common Go pitfalls (race conditions, nil pointer dereferences, integer overflow) are covered by `go test -race`, `go vet`, and `gosec`."
+  },
+
+  "crypto_published": {
+    "status": "Met",
+    "justification": "We do not implement cryptography. Release artifacts are signed with cosign keyless signing via Sigstore (publicly reviewed, PGP-replacement-grade)."
+  },
+  "crypto_call": {
+    "status": "Met",
+    "justification": "We do not implement cryptography. Release signing delegates to cosign (sigstore/cosign). HTTPS for distribution delegates to GitHub's TLS termination."
+  },
+  "crypto_floss": {
+    "status": "Met",
+    "justification": "cosign is Apache-2.0 (FLOSS); Go's crypto stdlib is BSD-3-Clause (FLOSS); openssl/boringssl alternatives also FLOSS."
+  },
+  "crypto_keylength": {
+    "status": "Met",
+    "justification": "Cosign keyless uses ECDSA P-256 (NIST-compliant through 2030+) via Sigstore's Fulcio CA. SHA-256 used for checksums. SSH tag signatures use ed25519."
+  },
+  "crypto_working": {
+    "status": "Met",
+    "justification": "ECDSA P-256, SHA-256, ed25519 — none broken."
+  },
+  "crypto_weaknesses": {
+    "status": "Met",
+    "justification": "No use of MD5, SHA-1, DES, RC4, or other weak primitives anywhere in the project or its dependencies (verified via go.sum + govulncheck)."
+  },
+  "crypto_pfs": {
+    "status": "Met",
+    "justification": "GitHub.com (where releases are hosted) supports TLS 1.3 with PFS-providing cipher suites by default."
+  },
+  "crypto_password_storage": {
+    "status": "N/A",
+    "justification": "The project does not store user passwords. The MCP server is local stdio and credential-free."
+  },
+  "crypto_random": {
+    "status": "N/A",
+    "justification": "The project does not generate cryptographic random values. (block_id prefixes use a counter, not randomness.)"
+  },
+
+  "delivery_mitm": {
+    "status": "Met",
+    "justification": "Distribution channels are HTTPS-only: github.com (TLS 1.3), pkg.go.dev (TLS via Go module proxy), Homebrew tap (HTTPS, when published in v0.1.1)."
+  },
+  "delivery_unsigned": {
+    "status": "Met",
+    "justification": "Release artifacts use SHA-256 checksums (checksums.txt) and cosign keyless signatures (checksums.txt.sig + checksums.txt.pem) signed via GitHub OIDC. SHA-1 / MD5 are not used."
+  },
+
+  "vulnerabilities_fixed_60_days": {
+    "status": "Met",
+    "justification": "govulncheck reports 0 vulnerabilities. Runs in CI on every push, on pre-push lefthook hook, and against the Go stdlib + all module deps."
+  },
+  "vulnerabilities_critical_fixed": {
+    "status": "Met",
+    "justification": "No known critical vulnerabilities. Go toolchain pinned to 1.25.10 explicitly to pull in the latest stdlib CVE fixes."
+  },
+
+  "no_leaked_credentials": {
+    "status": "Met",
+    "justification": "No secrets in the repository. The CLAUDE.md notes: \"No secrets in this repo. The server holds none. Don't log os.Environ(), request bodies at INFO, or anything that might contain user PII.\" CodeQL scans for credential leakage; gosec flags hardcoded creds; gitleaks-style patterns are not present."
+  },
+
+  "static_analysis": {
+    "status": "Met",
+    "justification": "CodeQL with security-and-quality query suite (the strictest) runs on every push and PR via .github/workflows/codeql.yml. Plus golangci-lint v2 bundles staticcheck + gosec + revive + gocritic."
+  },
+  "static_analysis_common_vulnerabilities": {
+    "status": "Met",
+    "justification": "CodeQL `security-and-quality` includes the `security-extended` queries (CWE-78, CWE-79, CWE-89, CWE-22, CWE-918, etc.). gosec covers G-rules (G101 hardcoded creds, G201 SQL formatting, G401 weak crypto, etc.)."
+  },
+  "static_analysis_fixed": {
+    "status": "Met",
+    "justification": "Both CodeQL and golangci-lint report 0 issues on the main branch. Required to be green for any merge."
+  },
+  "static_analysis_often": {
+    "status": "Met",
+    "justification": "Runs on every push and PR (CI), every commit (lefthook pre-commit golangci-lint), and on a weekly schedule for CodeQL (Monday 04:27 UTC)."
+  },
+
+  "dynamic_analysis": {
+    "status": "Met",
+    "justification": "go test -race (CI + lefthook pre-push) detects data races. Stdlib fuzz tests on the splitter (FuzzSplitText) run for 30s in CI on every push."
+  },
+  "dynamic_analysis_unsafe": {
+    "status": "N/A",
+    "justification": "Go is memory-safe. Memory-unsafety classes (use-after-free, buffer overflow, double-free) are not possible in pure-Go code without `unsafe`, which this project does not use."
+  },
+  "dynamic_analysis_enable_assertions": {
+    "status": "Met",
+    "justification": "Test suite runs with -race (data race detector) which is the Go equivalent of runtime assertions for concurrency correctness."
+  },
+  "dynamic_analysis_fixed": {
+    "status": "Met",
+    "justification": "0 race-detector findings, 0 fuzz-corpus crashes on the main branch."
+  }
+}
