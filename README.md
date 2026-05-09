@@ -5,6 +5,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/hishamkaram/mcp-slack-block-kit.svg)](https://pkg.go.dev/github.com/hishamkaram/mcp-slack-block-kit)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hishamkaram/mcp-slack-block-kit)](https://goreportcard.com/report/github.com/hishamkaram/mcp-slack-block-kit)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/hishamkaram/mcp-slack-block-kit/badge)](https://scorecard.dev/viewer/?uri=github.com/hishamkaram/mcp-slack-block-kit)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12792/badge)](https://www.bestpractices.dev/projects/12792)
 [![License: MIT](https://img.shields.io/github/license/hishamkaram/mcp-slack-block-kit)](LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/hishamkaram/mcp-slack-block-kit?sort=semver)](https://github.com/hishamkaram/mcp-slack-block-kit/releases/latest)
 [![Cosign verified](https://img.shields.io/badge/cosign-verified-brightgreen?logo=sigstore)](https://github.com/hishamkaram/mcp-slack-block-kit/releases/latest)
