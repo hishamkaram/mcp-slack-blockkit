@@ -32,6 +32,7 @@ coverage.html
 
 # Per-developer Claude Code overrides (settings.json IS shared)
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # Internal-only design docs not shipped publicly
 docs/internal/
