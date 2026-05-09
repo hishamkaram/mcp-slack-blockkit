@@ -95,7 +95,7 @@ Cobra entry point. `main.go` (root + version + slog setup), `server.go`
 ### `block_kit/`
 
 Public Go library re-exports. External consumers get a single stable
-import path: `github.com/hishamkaram/mcp-slack-block-kit/blockkit`. Type
+import path: `github.com/hishamkaram/mcp-slack-block-kit/block_kit`. Type
 aliases for `Converter`, `Options`, `Mode`, `Validator`, etc. Functions
 delegate to `internal/`. Tests live in `block_kit_test` (external
 package) so any leak of internal-only behavior fails compilation here.

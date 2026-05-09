@@ -171,7 +171,7 @@ pr, _ := block_kit.PreviewURL(blocks)
 fmt.Println("preview:", pr.URL)
 ```
 
-Full API reference: [pkg.go.dev](https://pkg.go.dev/github.com/hishamkaram/mcp-slack-block-kit/blockkit).
+Full API reference: [pkg.go.dev](https://pkg.go.dev/github.com/hishamkaram/mcp-slack-block-kit/block_kit).
 
 ## Why this and not...
 

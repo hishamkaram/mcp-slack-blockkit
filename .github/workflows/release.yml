@@ -6,33 +6,35 @@ on:
       - 'v*'
 
 permissions:
-  contents: write    # release upload + Homebrew tap push (with PAT)
-  id-token: write    # cosign keyless signing via GitHub OIDC
-  attestations: write
+  contents: read
 
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write       # release upload + Homebrew tap push (with PAT)
+      id-token: write       # cosign keyless signing via GitHub OIDC
+      attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
         with:
           # Full history is required for the changelog generator.
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5.6.0
         with:
           go-version: stable
           cache: true
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5  # v3.10.1
         with:
           cosign-release: 'v2.5.0'
 
       - name: Install syft (for SBOM generation)
-        uses: anchore/sbom-action/download-syft@v0
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610  # v0.24.0
 
-      - uses: goreleaser/goreleaser-action@v7
+      - uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8  # v7.2.1
         with:
           version: '~> v2'
           args: release --clean
