@@ -4,11 +4,16 @@
 
 **Please do not open public GitHub issues for security vulnerabilities.**
 
-Use [GitHub Private Vulnerability Reporting](https://github.com/hishamkaram/mcp-slack-block-kit/security/advisories/new)
-instead — Security tab → "Report a vulnerability" → fill in the form.
-This creates a private advisory only the maintainer can see, with a
-built-in discussion thread, CVE coordination, and a controlled
-disclosure timeline.
+Report privately through one of:
+
+- GitHub Private Vulnerability Reporting (preferred):
+  https://github.com/hishamkaram/mcp-slack-block-kit/security/advisories/new
+- Email: hishamwaleedkaram@gmail.com (subject: `[mcp-slack-block-kit security]`)
+
+The PVR form (Security tab → "Report a vulnerability") creates a
+private advisory only the maintainer can see, with a built-in
+discussion thread, CVE coordination, and a controlled disclosure
+timeline.
 
 If for some reason GitHub PVR isn't an option, email
 [hishamwaleedkaram@gmail.com](mailto:hishamwaleedkaram@gmail.com?subject=%5Bmcp-slack-block-kit%20security%5D)
