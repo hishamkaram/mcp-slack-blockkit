@@ -32,10 +32,41 @@ Five MCP tools your AI assistant can call:
 
 Plus a **`convert` CLI** for offline testing without an MCP client.
 
-**Security:** every text run is HTML-entity-escaped by default so
-AI-generated content can't broadcast `<!channel>` / `<!here>` / `<@U…>`
-to your workspace. See [SECURITY.md](SECURITY.md) for the full threat
-model.
+### Conversion modes
+
+`convert_markdown_to_blockkit` accepts a `mode` parameter (CLI: `--mode`):
+
+| Mode | What it produces | When to use |
+|---|---|---|
+| **`auto`** (default) | One Slack `markdown` block when the input is short, image-free, and contains no nested-block patterns. Otherwise full `rich_text` decomposition. | Most LLM workflows — let the converter pick. |
+| **`rich_text`** | Always full decomposition into typed `rich_text` / `section` / `header` / `image` / `divider` / `table` blocks. | When you want explicit, deterministic block shapes (e.g. for downstream styling, validation, or because you don't want to delegate rendering to Slack's `markdown` parser). |
+| **`markdown_block`** | Single Slack `markdown` block — Slack's server-side parser owns the rendering. | When the input is known-good markdown and you want the smallest possible payload. Errors if input >12,000 chars. |
+
+### Nested elements
+
+Slack's `rich_text` element schema doesn't allow code blocks, lists, or
+tables inside a `rich_text_quote` or `rich_text_list` (those containers
+take inline elements only). When markdown contains one of these
+patterns:
+
+- code in a blockquote / list item
+- table in a blockquote / list item
+- list in a blockquote
+
+…the converter **decomposes** the construct into adjacent top-level blocks
+rather than silently flattening to plain text. Ordered lists set `Offset`
+on the post-split sibling so numbering continues across the gap. In `auto`
+mode this triggers a one-line warning in the response so callers know the
+visual rendering won't look exactly like CommonMark embedding — the inner
+block is *adjacent* to the quote, not visually nested inside it.
+
+### Security
+
+Every text run is HTML-entity-escaped by default so AI-generated content
+can't broadcast `<!channel>` / `<!here>` / `<@U…>` to your workspace. Set
+`allow_broadcasts: true` on the tool input to opt out (don't, unless the
+input is fully trusted). See [SECURITY.md](SECURITY.md) for the full
+threat model.
 
 ## Install
 
@@ -81,8 +112,9 @@ and any other MCP-compatible client that supports the stdio transport.
 
 ## Use it from the CLI
 
-```sh
-echo '# Hello
+````sh
+cat <<'EOF' | mcp-slack-blockkit convert --mode rich_text --pretty
+# Hello
 
 A paragraph with **bold**, *italic*, `code`, and a [link](https://example.com).
 
@@ -91,15 +123,23 @@ A paragraph with **bold**, *italic*, `code`, and a [link](https://example.com).
 
 ```go
 func main() {}
-```' | mcp-slack-blockkit convert --mode rich_text --pretty
 ```
+EOF
+````
 
-Add `--preview` to also get a Block Kit Builder URL on stderr (stdout
-stays JSON-only so you can pipe straight into `jq` or `chat.postMessage`).
+Stdout receives the Block Kit JSON only — pipe straight into `jq` or
+`chat.postMessage`. Stderr carries logs and the optional `--preview`
+Block Kit Builder URL:
 
 ```sh
-mcp-slack-blockkit convert --help
+echo '# title' | mcp-slack-blockkit convert --preview
+# stdout: {"blocks":[{"type":"header",...}]}
+# stderr: preview: https://app.slack.com/block-kit-builder/#%7B...%7D
 ```
+
+Other useful flags: `--mode={auto|rich_text|markdown_block|section_mrkdwn}`,
+`--allow-broadcasts`, `--block-id-prefix=<str>`, `--max-input-bytes=<n>`,
+`--pretty`. Full help: `mcp-slack-blockkit convert --help`.
 
 ## Use it from Go
 
@@ -109,8 +149,14 @@ import "github.com/hishamkaram/mcp-slack-blockkit/blockkit"
 r, err := blockkit.NewConverter(blockkit.DefaultOptions())
 if err != nil { panic(err) }
 
-blocks, err := r.Convert("# Title\n\nbody **bold** text.")
+// ConvertWithWarnings returns blocks plus any fallback notes (e.g. when
+// auto mode routed away from markdown_block because the input contains
+// code-in-blockquote). Use Convert() if you want to drop warnings.
+blocks, warnings, err := r.ConvertWithWarnings("# Title\n\nbody **bold** text.")
 if err != nil { panic(err) }
+for _, w := range warnings {
+    log.Printf("converter warning: %s", w)
+}
 
 // Validate before sending:
 result := blockkit.NewValidator().Validate(blocks)
