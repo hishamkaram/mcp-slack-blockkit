@@ -5,7 +5,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/splitter"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/splitter"
 )
 
 // SplitInput accepts a blocks array (or payload-wrapped form) plus an

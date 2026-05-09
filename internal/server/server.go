@@ -2,10 +2,10 @@
 // engines into the official Model Context Protocol Go SDK and exposes
 // the five v0.1 tools described in research.md §B.5:
 //
-//   - convert_markdown_to_blockkit
-//   - validate_blockkit
-//   - preview_blockkit
-//   - lint_blockkit
+//   - convert_markdown_to_block_kit
+//   - validate_block_kit
+//   - preview_block_kit
+//   - lint_block_kit
 //   - split_blocks
 //
 // The server is intentionally thin: each tool handler is a small adapter
@@ -21,12 +21,12 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/converter"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/converter"
 )
 
 // Implementation metadata reported to MCP clients on initialize.
 const (
-	ServerName = "mcp-slack-blockkit"
+	ServerName = "mcp-slack-block-kit"
 )
 
 // Server bundles the per-process state shared by every tool handler.

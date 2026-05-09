@@ -7,13 +7,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/converter"
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/preview"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/converter"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/preview"
 )
 
 // newConvertCmd builds the `convert` subcommand: read markdown from stdin,
 // write Block Kit JSON to stdout. The implementation reuses the same
-// internal/converter that powers the MCP convert_markdown_to_blockkit
+// internal/converter that powers the MCP convert_markdown_to_block_kit
 // tool, so CLI and MCP outputs match bit-for-bit on identical input.
 //
 // Stream contract:
@@ -24,7 +24,7 @@ import (
 //
 // This separation lets shell pipelines work cleanly:
 //
-//	cat doc.md | mcp-slack-blockkit convert --preview > payload.json
+//	cat doc.md | mcp-slack-block-kit convert --preview > payload.json
 func newConvertCmd(stderr io.Writer, stdout io.Writer, stdin io.Reader) *cobra.Command {
 	var (
 		mode            string

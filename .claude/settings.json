@@ -9,7 +9,7 @@
       "Bash(govulncheck:*)",
       "Bash(goreleaser:*)",
       "Bash(lefthook:*)",
-      "Bash(./bin/mcp-slack-blockkit:*)"
+      "Bash(./bin/mcp-slack-block-kit:*)"
     ]
   }
 }

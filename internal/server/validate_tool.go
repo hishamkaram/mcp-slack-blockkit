@@ -7,7 +7,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/slack-go/slack"
 
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/validator"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/validator"
 )
 
 // ValidateInput accepts either a `blocks` array directly or a full Slack
@@ -34,7 +34,7 @@ func (s *Server) registerValidateTool() {
 	mcp.AddTool(
 		s.mcp,
 		&mcp.Tool{
-			Name: "validate_blockkit",
+			Name: "validate_block_kit",
 			Description: "Validate a Slack Block Kit payload against the documented " +
 				"Slack constraints (per-block char limits, count limits, XOR rules, " +
 				"unique block_ids, only_one_table_allowed, markdown_block 12k cap). " +

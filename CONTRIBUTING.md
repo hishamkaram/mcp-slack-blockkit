@@ -1,4 +1,4 @@
-# Contributing to mcp-slack-blockkit
+# Contributing to mcp-slack-block-kit
 
 Thanks for your interest. This is a small but security-relevant project,
 so the contribution bar emphasizes correctness and tests over volume.
@@ -10,7 +10,7 @@ After cloning:
 ```sh
 make setup     # one-time: installs lefthook git hooks
 make test      # run the test suite
-make build     # build ./bin/mcp-slack-blockkit
+make build     # build ./bin/mcp-slack-block-kit
 ```
 
 If `make setup` fails because lefthook isn't on your `PATH`:
@@ -54,7 +54,7 @@ feat/<slug>     fix/<slug>     docs/<slug>     chore/<slug>
 Every change ships with tests. The CI coverage gate is **≥80% overall**
 and we hold these packages to that bar individually:
 
-- `blockkit/`
+- `block_kit/`
 - `internal/converter/`
 - `internal/validator/`
 - `internal/splitter/`
@@ -87,7 +87,7 @@ Useful Make targets (run `make help` for the full list):
 
 | Target | What it does |
 |---|---|
-| `make build` | Build to `./bin/mcp-slack-blockkit` |
+| `make build` | Build to `./bin/mcp-slack-block-kit` |
 | `make test` | Full test suite |
 | `make test-race` | Race tests + coverage profile |
 | `make cover` | HTML coverage report |

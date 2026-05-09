@@ -3,7 +3,7 @@ description: Security-critical mention sanitization rule for the converter and M
 paths:
   - "internal/converter/**"
   - "internal/server/**"
-  - "blockkit/**"
+  - "block_kit/**"
 ---
 
 # Mention sanitization is mandatory

@@ -1,4 +1,4 @@
-// Package blockkit is the public Go API for mcp-slack-blockkit.
+// Package block_kit is the public Go API for mcp-slack-block-kit.
 //
 // External Go consumers import this single package to use the converter,
 // validator, splitter, and preview engines without pulling the MCP
@@ -13,11 +13,11 @@
 //	import (
 //	    "fmt"
 //	    "encoding/json"
-//	    "github.com/hishamkaram/mcp-slack-blockkit/blockkit"
+//	    "github.com/hishamkaram/mcp-slack-block-kit/block_kit"
 //	)
 //
 //	func main() {
-//	    r, err := blockkit.NewConverter(blockkit.DefaultOptions())
+//	    r, err := block_kit.NewConverter(block_kit.DefaultOptions())
 //	    if err != nil { panic(err) }
 //
 //	    blocks, err := r.Convert("# Hello\n\nbody **bold** text.")
@@ -27,7 +27,7 @@
 //	    fmt.Println(string(out))
 //
 //	    // Validate before sending to chat.postMessage:
-//	    result := blockkit.NewValidator().Validate(blocks)
+//	    result := block_kit.NewValidator().Validate(blocks)
 //	    if !result.Valid {
 //	        for _, e := range result.Errors {
 //	            fmt.Println(e.Path, e.Code, e.Message)
@@ -35,18 +35,18 @@
 //	    }
 //
 //	    // Visual QA via Block Kit Builder:
-//	    pr, _ := blockkit.PreviewURL(blocks)
+//	    pr, _ := block_kit.PreviewURL(blocks)
 //	    fmt.Println("preview:", pr.URL)
 //	}
-package blockkit
+package block_kit
 
 import (
 	"github.com/slack-go/slack"
 
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/converter"
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/preview"
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/splitter"
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/validator"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/converter"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/preview"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/splitter"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/validator"
 )
 
 // --- Converter --------------------------------------------------------------

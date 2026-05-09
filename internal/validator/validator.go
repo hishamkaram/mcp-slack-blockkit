@@ -1,7 +1,7 @@
 // Package validator validates Slack Block Kit payloads against the
 // constraints documented at https://docs.slack.dev/reference/block-kit/.
 // It returns structured Violation values keyed by JSON path so callers
-// (the validate_blockkit MCP tool, the lint_blockkit MCP tool, the
+// (the validate_block_kit MCP tool, the lint_block_kit MCP tool, the
 // converter's pre-flight check) can surface actionable errors back to
 // the LLM or human user.
 //

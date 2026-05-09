@@ -10,11 +10,11 @@ private advisory only the maintainer can see, with a built-in
 discussion thread, CVE coordination, and a controlled disclosure
 timeline.
 
-[pvr]: https://github.com/hishamkaram/mcp-slack-blockkit/security/advisories/new
+[pvr]: https://github.com/hishamkaram/mcp-slack-block-kit/security/advisories/new
 
 If for some reason GitHub PVR isn't an option, email
 **hishamwaleedkaram@gmail.com** with subject line
-`[mcp-slack-blockkit security]`. Use [age](https://age-encryption.org/)
+`[mcp-slack-block-kit security]`. Use [age](https://age-encryption.org/)
 or PGP if your report contains exploit details (key on request).
 
 ## Response timeline

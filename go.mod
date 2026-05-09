@@ -1,4 +1,4 @@
-module github.com/hishamkaram/mcp-slack-blockkit
+module github.com/hishamkaram/mcp-slack-block-kit
 
 go 1.25.0
 

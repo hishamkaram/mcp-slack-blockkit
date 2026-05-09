@@ -1,4 +1,4 @@
-# GoReleaser config for mcp-slack-blockkit.
+# GoReleaser config for mcp-slack-block-kit.
 # https://goreleaser.com/customization/
 #
 # Locally:   goreleaser build --snapshot --clean
@@ -10,16 +10,16 @@
 #                              <user>/homebrew-tap repo; required for tap push.
 version: 2
 
-project_name: mcp-slack-blockkit
+project_name: mcp-slack-block-kit
 
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - id: mcp-slack-blockkit
-    main: ./cmd/mcp-slack-blockkit
-    binary: mcp-slack-blockkit
+  - id: mcp-slack-block-kit
+    main: ./cmd/mcp-slack-block-kit
+    binary: mcp-slack-block-kit
     env:
       - CGO_ENABLED=0
     goos:
@@ -30,7 +30,7 @@ builds:
       - amd64
       - arm64
     # ldflags inject build-time metadata into main.{version,commit,date}.
-    # See cmd/mcp-slack-blockkit/main.go for the matching package vars.
+    # See cmd/mcp-slack-block-kit/main.go for the matching package vars.
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
@@ -77,18 +77,18 @@ changelog:
 # Homebrew tap formula publishing. Requires a public repo named
 # `homebrew-tap` under the same owner; see docs.brew.sh/Taps.
 brews:
-  - name: mcp-slack-blockkit
+  - name: mcp-slack-block-kit
     repository:
       owner: hishamkaram
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    homepage: https://github.com/hishamkaram/mcp-slack-blockkit
+    homepage: https://github.com/hishamkaram/mcp-slack-block-kit
     description: "MCP server that converts markdown into Slack Block Kit JSON"
     license: MIT
     test: |
-      system "#{bin}/mcp-slack-blockkit", "--version"
+      system "#{bin}/mcp-slack-block-kit", "--version"
     install: |
-      bin.install "mcp-slack-blockkit"
+      bin.install "mcp-slack-block-kit"
 
 # CycloneDX SBOM generated via syft (bundled with goreleaser).
 sboms:
@@ -112,33 +112,33 @@ signs:
 release:
   github:
     owner: hishamkaram
-    name: mcp-slack-blockkit
+    name: mcp-slack-block-kit
   draft: false
   prerelease: auto
   mode: replace
   header: |
-    ## mcp-slack-blockkit {{ .Version }}
+    ## mcp-slack-block-kit {{ .Version }}
 
     Single-binary MCP server that converts AI-generated markdown into Slack
-    Block Kit JSON. Five tools: `convert_markdown_to_blockkit`,
-    `validate_blockkit`, `preview_blockkit`, `lint_blockkit`, `split_blocks`.
+    Block Kit JSON. Five tools: `convert_markdown_to_block_kit`,
+    `validate_block_kit`, `preview_block_kit`, `lint_block_kit`, `split_blocks`.
 
     ### Install
 
     ```sh
-    brew install hishamkaram/tap/mcp-slack-blockkit
+    brew install hishamkaram/tap/mcp-slack-block-kit
     # or
-    go install github.com/hishamkaram/mcp-slack-blockkit/cmd/mcp-slack-blockkit@{{ .Tag }}
+    go install github.com/hishamkaram/mcp-slack-block-kit/cmd/mcp-slack-block-kit@{{ .Tag }}
     ```
 
     ### Verify (cosign)
 
     ```sh
     cosign verify-blob \
-      --certificate-identity-regexp 'https://github\.com/hishamkaram/mcp-slack-blockkit/.+' \
+      --certificate-identity-regexp 'https://github\.com/hishamkaram/mcp-slack-block-kit/.+' \
       --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
       --certificate checksums.txt.pem --signature checksums.txt.sig \
       checksums.txt
     ```
   footer: |
-    **Full changelog**: https://github.com/hishamkaram/mcp-slack-blockkit/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **Full changelog**: https://github.com/hishamkaram/mcp-slack-block-kit/compare/{{ .PreviousTag }}...{{ .Tag }}

@@ -5,7 +5,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/preview"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/preview"
 )
 
 // PreviewInput accepts a blocks array (or a payload-wrapped form, same
@@ -28,7 +28,7 @@ func (s *Server) registerPreviewTool() {
 	mcp.AddTool(
 		s.mcp,
 		&mcp.Tool{
-			Name: "preview_blockkit",
+			Name: "preview_block_kit",
 			Description: "Generate a Block Kit Builder URL for the given blocks. The " +
 				"returned URL opens Slack's own visual builder with the payload " +
 				"pre-loaded — useful for one-click visual QA from an LLM workflow. " +

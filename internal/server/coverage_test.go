@@ -84,7 +84,7 @@ func TestConvertTool_SplitMode_ReturnsChunks(t *testing.T) {
 
 	// Build markdown that produces > DefaultMaxBlocksPerChunk blocks
 	// (60 dividers).
-	r := callTool(t, session, "convert_markdown_to_blockkit", ConvertInput{
+	r := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
 		Markdown: strings.Repeat("paragraph.\n\n---\n\n", 30),
 		Mode:     "rich_text",
 		Split:    "both",
@@ -104,7 +104,7 @@ func TestConvertTool_AllowBroadcastsTrue_PassthroughChannelMention(t *testing.T)
 	session, cleanup := newTestServer(t)
 	defer cleanup()
 
-	r := callTool(t, session, "convert_markdown_to_blockkit", ConvertInput{
+	r := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
 		Markdown:        "alert <!channel> please",
 		Mode:            "rich_text",
 		AllowBroadcasts: true,
@@ -129,7 +129,7 @@ func TestLintTool_LongSectionText_FlagsWarning(t *testing.T) {
 		"type": "section",
 		"text": map[string]any{"type": "mrkdwn", "text": near},
 	}}
-	r := callTool(t, session, "lint_blockkit", LintInput{Blocks: blocks})
+	r := callTool(t, session, "lint_block_kit", LintInput{Blocks: blocks})
 	var out LintOutput
 	extractStructured(t, r, &out)
 	var found bool
@@ -151,7 +151,7 @@ func TestLintTool_BlocksNearLimit_FlagsWarning(t *testing.T) {
 	for i := range blocks {
 		blocks[i] = map[string]any{"type": "divider"}
 	}
-	r := callTool(t, session, "lint_blockkit", LintInput{Blocks: blocks})
+	r := callTool(t, session, "lint_block_kit", LintInput{Blocks: blocks})
 	var out LintOutput
 	extractStructured(t, r, &out)
 	var found bool
@@ -171,7 +171,7 @@ func TestLintTool_ThresholdsClampOver100(t *testing.T) {
 	session, cleanup := newTestServer(t)
 	defer cleanup()
 	blocks := []any{map[string]any{"type": "divider"}}
-	r := callTool(t, session, "lint_blockkit", LintInput{
+	r := callTool(t, session, "lint_block_kit", LintInput{
 		Blocks:     blocks,
 		Thresholds: Thresholds{TextPct: 200, HeaderPct: -50, ActionsPct: 50, BlocksPct: 0},
 	})
@@ -188,7 +188,7 @@ func TestLintTool_ThresholdsClampOver100(t *testing.T) {
 func TestPreviewTool_PayloadForm_AlsoWorks(t *testing.T) {
 	session, cleanup := newTestServer(t)
 	defer cleanup()
-	r := callTool(t, session, "preview_blockkit", PreviewInput{
+	r := callTool(t, session, "preview_block_kit", PreviewInput{
 		Payload: map[string]any{
 			"blocks": []any{map[string]any{"type": "divider"}},
 		},

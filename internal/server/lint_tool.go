@@ -8,7 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/slack-go/slack"
 
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/validator"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/validator"
 )
 
 // LintInput accepts blocks/payload (same shape as validate) plus a
@@ -52,13 +52,13 @@ func (s *Server) registerLintTool() {
 	mcp.AddTool(
 		s.mcp,
 		&mcp.Tool{
-			Name: "lint_blockkit",
+			Name: "lint_block_kit",
 			Description: "Lint a Slack Block Kit payload for near-limit content, " +
 				"deprecated patterns, and accessibility gaps. Always advisory — " +
 				"never returns errors, only warnings — so it's safe to call on a " +
 				"payload that is technically valid but might benefit from " +
 				"adjustment. Configurable thresholds (default 90% of each Slack " +
-				"limit). Use validate_blockkit for hard correctness checks.",
+				"limit). Use validate_block_kit for hard correctness checks.",
 		},
 		s.handleLint,
 	)

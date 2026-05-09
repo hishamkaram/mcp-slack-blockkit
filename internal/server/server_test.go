@@ -109,7 +109,7 @@ func contentText(r *mcp.CallToolResult) string {
 	return sb.String()
 }
 
-// --- convert_markdown_to_blockkit -------------------------------------------
+// --- convert_markdown_to_block_kit -------------------------------------------
 
 // blocksJSON re-marshals out.Blocks (an `any`) so substring assertions
 // can probe the wire shape regardless of whether the SDK delivered the
@@ -127,7 +127,7 @@ func TestConvertTool_HappyPath(t *testing.T) {
 	session, cleanup := newTestServer(t)
 	defer cleanup()
 
-	r := callTool(t, session, "convert_markdown_to_blockkit", ConvertInput{
+	r := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
 		Markdown: "# Title\n\nbody text here.",
 		Mode:     "rich_text",
 	})
@@ -150,7 +150,7 @@ func TestConvertTool_AutoMode_PicksMarkdownBlock(t *testing.T) {
 	session, cleanup := newTestServer(t)
 	defer cleanup()
 
-	r := callTool(t, session, "convert_markdown_to_blockkit", ConvertInput{
+	r := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
 		Markdown: "Just a short paragraph.",
 		Mode:     "auto",
 	})
@@ -168,7 +168,7 @@ func TestConvertTool_MentionMap_ResolvesUsers(t *testing.T) {
 	session, cleanup := newTestServer(t)
 	defer cleanup()
 
-	r := callTool(t, session, "convert_markdown_to_blockkit", ConvertInput{
+	r := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
 		Markdown:   "ping @alice for review",
 		Mode:       "rich_text",
 		MentionMap: map[string]string{"alice": "U123ABC"},
@@ -187,7 +187,7 @@ func TestConvertTool_AllowBroadcastsFalse_EscapesChannelMention(t *testing.T) {
 	session, cleanup := newTestServer(t)
 	defer cleanup()
 
-	r := callTool(t, session, "convert_markdown_to_blockkit", ConvertInput{
+	r := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
 		Markdown: "alert <!channel> please",
 		Mode:     "rich_text",
 	})
@@ -207,7 +207,7 @@ func TestConvertTool_PreviewURLEnabled_ReturnsBuilderURL(t *testing.T) {
 	session, cleanup := newTestServer(t)
 	defer cleanup()
 
-	r := callTool(t, session, "convert_markdown_to_blockkit", ConvertInput{
+	r := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
 		Markdown:         "simple body",
 		Mode:             "rich_text",
 		ReturnPreviewURL: true,
@@ -221,14 +221,14 @@ func TestConvertTool_PreviewURLEnabled_ReturnsBuilderURL(t *testing.T) {
 	}
 }
 
-// --- validate_blockkit ------------------------------------------------------
+// --- validate_block_kit ------------------------------------------------------
 
 func TestValidateTool_ValidPayload_ReturnsValidTrue(t *testing.T) {
 	session, cleanup := newTestServer(t)
 	defer cleanup()
 
 	blocks := []any{map[string]any{"type": "divider"}}
-	r := callTool(t, session, "validate_blockkit", ValidateInput{Blocks: blocks})
+	r := callTool(t, session, "validate_block_kit", ValidateInput{Blocks: blocks})
 
 	var out ValidateOutput
 	extractStructured(t, r, &out)
@@ -246,7 +246,7 @@ func TestValidateTool_HeaderTooLong_ReturnsError(t *testing.T) {
 		"type": "header",
 		"text": map[string]any{"type": "plain_text", "text": tooLong},
 	}}
-	r := callTool(t, session, "validate_blockkit", ValidateInput{Blocks: blocks})
+	r := callTool(t, session, "validate_block_kit", ValidateInput{Blocks: blocks})
 
 	var out ValidateOutput
 	extractStructured(t, r, &out)
@@ -268,20 +268,20 @@ func TestValidateTool_NoInput_ReturnsToolError(t *testing.T) {
 	session, cleanup := newTestServer(t)
 	defer cleanup()
 
-	r := callTool(t, session, "validate_blockkit", ValidateInput{})
+	r := callTool(t, session, "validate_block_kit", ValidateInput{})
 	if !r.IsError {
 		t.Error("expected isError=true when neither blocks nor payload provided")
 	}
 }
 
-// --- preview_blockkit -------------------------------------------------------
+// --- preview_block_kit -------------------------------------------------------
 
 func TestPreviewTool_ReturnsBuilderURL(t *testing.T) {
 	session, cleanup := newTestServer(t)
 	defer cleanup()
 
 	blocks := []any{map[string]any{"type": "divider"}}
-	r := callTool(t, session, "preview_blockkit", PreviewInput{Blocks: blocks})
+	r := callTool(t, session, "preview_block_kit", PreviewInput{Blocks: blocks})
 
 	var out PreviewOutput
 	extractStructured(t, r, &out)
@@ -293,7 +293,7 @@ func TestPreviewTool_ReturnsBuilderURL(t *testing.T) {
 	}
 }
 
-// --- lint_blockkit ----------------------------------------------------------
+// --- lint_block_kit ----------------------------------------------------------
 
 func TestLintTool_NearLimitHeader_FlagsWarning(t *testing.T) {
 	session, cleanup := newTestServer(t)
@@ -305,7 +305,7 @@ func TestLintTool_NearLimitHeader_FlagsWarning(t *testing.T) {
 		"type": "header",
 		"text": map[string]any{"type": "plain_text", "text": near},
 	}}
-	r := callTool(t, session, "lint_blockkit", LintInput{Blocks: blocks})
+	r := callTool(t, session, "lint_block_kit", LintInput{Blocks: blocks})
 	var out LintOutput
 	extractStructured(t, r, &out)
 	var found bool
@@ -324,7 +324,7 @@ func TestLintTool_HappyPath_NoFindings(t *testing.T) {
 	defer cleanup()
 
 	blocks := []any{map[string]any{"type": "divider"}}
-	r := callTool(t, session, "lint_blockkit", LintInput{Blocks: blocks})
+	r := callTool(t, session, "lint_block_kit", LintInput{Blocks: blocks})
 	var out LintOutput
 	extractStructured(t, r, &out)
 	if len(out.Findings) != 0 {

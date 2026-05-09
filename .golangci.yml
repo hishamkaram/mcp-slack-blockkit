@@ -35,6 +35,12 @@ linters:
       # repeated string literals, etc. are conventional in Go test code.
       - path: _test\.go
         linters: [errcheck, gosec, gocritic]
+      # The public Go package is named `block_kit` to mirror Slack's "Block Kit"
+      # product name; the underscore trips revive's var-naming rule. Scoped
+      # exclusion so other underscore violations elsewhere are still caught.
+      - path: ^block_kit/
+        linters: [revive]
+        text: "should not use underscores in Go names"
 
 formatters:
   enable:

@@ -1,4 +1,4 @@
-# Git hooks for mcp-slack-blockkit. Runs the fast checks locally so CI
+# Git hooks for mcp-slack-block-kit. Runs the fast checks locally so CI
 # isn't the first thing that catches a typo.
 #
 # Install once after clone:  `make setup`  (or `lefthook install` directly).
@@ -47,7 +47,7 @@ pre-commit:
       # Project-scoped GOCACHE / GOLANGCI_LINT_CACHE so multiple
       # checkouts of the same repo don't fight each other's caches and
       # so a stale system-wide cache can't make this hook lie.
-      run: env GOCACHE=/tmp/mcp-slack-blockkit-gocache GOLANGCI_LINT_CACHE=/tmp/mcp-slack-blockkit-golangci-cache golangci-lint run --timeout=5m ./...
+      run: env GOCACHE=/tmp/mcp-slack-block-kit-gocache GOLANGCI_LINT_CACHE=/tmp/mcp-slack-block-kit-golangci-cache golangci-lint run --timeout=5m ./...
       fail_text: "golangci-lint failed. Run: golangci-lint run ./... to see issues."
 
     vet:

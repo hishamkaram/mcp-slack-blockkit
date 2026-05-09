@@ -6,7 +6,7 @@ import (
 
 	"github.com/slack-go/slack"
 
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/preview"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/preview"
 )
 
 // Tests for the nested-element handling added in the "Close the

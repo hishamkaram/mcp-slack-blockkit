@@ -32,17 +32,17 @@ jobs:
         run: go tool cover -func=cover.out
 
       - name: Coverage gate (≥80% on listed packages)
-        # Per research.md §8 mandate: blockkit + the four conversion-engine
+        # Per research.md §8 mandate: block_kit + the four conversion-engine
         # packages must hit at least 80% statement coverage. Other packages
         # are advisory.
         run: |
           set -euo pipefail
           for pkg in \
-            github.com/hishamkaram/mcp-slack-blockkit/blockkit \
-            github.com/hishamkaram/mcp-slack-blockkit/internal/converter \
-            github.com/hishamkaram/mcp-slack-blockkit/internal/validator \
-            github.com/hishamkaram/mcp-slack-blockkit/internal/splitter \
-            github.com/hishamkaram/mcp-slack-blockkit/internal/preview \
+            github.com/hishamkaram/mcp-slack-block-kit/blockkit \
+            github.com/hishamkaram/mcp-slack-block-kit/internal/converter \
+            github.com/hishamkaram/mcp-slack-block-kit/internal/validator \
+            github.com/hishamkaram/mcp-slack-block-kit/internal/splitter \
+            github.com/hishamkaram/mcp-slack-block-kit/internal/preview \
           ; do
             line=$(go tool cover -func=cover.out | awk -v p="$pkg/" '$1 ~ p && $1 ~ /total:|\.go/' | grep -E "^${pkg}/[a-z_]+\.go" | awk '{ sum += $NF; n++ } END { if (n) printf "%.1f", sum/n; else print "0" }') || line=0
             # Fallback: use the per-file coverage average. This is approximate;

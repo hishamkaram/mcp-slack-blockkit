@@ -1,4 +1,4 @@
-# mcp-slack-blockkit — Claude Code project notes
+# mcp-slack-block-kit — Claude Code project notes
 
 Single-binary MCP server + CLI that converts AI-generated markdown into
 Slack Block Kit JSON. Go 1.25+. Zero external runtime dependencies.
@@ -9,7 +9,7 @@ Slack Block Kit JSON. Go 1.25+. Zero external runtime dependencies.
 
 | Action | Command |
 |---|---|
-| Build local binary | `make build` (output: `bin/mcp-slack-blockkit`) |
+| Build local binary | `make build` (output: `bin/mcp-slack-block-kit`) |
 | Run all tests | `make test` |
 | Race tests + coverage | `make test-race` |
 | HTML coverage report | `make cover` |
@@ -61,13 +61,13 @@ CI mirrors all of the above. Coverage gate: **≥80% overall, enforced in
 ## Repository layout
 
 ```
-cmd/mcp-slack-blockkit/   cobra entry point (server default + convert subcommand)
+cmd/mcp-slack-block-kit/   cobra entry point (server default + convert subcommand)
 internal/converter/       goldmark renderer + emoji/mentions/markdown_block
 internal/validator/       slack constraint suite + structured Violations
 internal/splitter/        SplitText + ChunkBlocks (50-block + table-isolation)
 internal/preview/         Block Kit Builder URL encoder
 internal/server/          MCP wiring (5 tools on top of go-sdk v1.6.0)
-blockkit/                 Public Go library re-exports (semver-stable surface)
+block_kit/                 Public Go library re-exports (semver-stable surface)
 docs/                     Public docs (CLAUDE-architecture.md, etc.)
 docs/internal/            Gitignored design notes (research.md lives here)
 ```

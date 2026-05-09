@@ -1,7 +1,7 @@
 .PHONY: help setup build test test-race cover lint vuln vet fuzz fuzz-long install snapshot clean
 
-BINARY := mcp-slack-blockkit
-PKG := github.com/hishamkaram/mcp-slack-blockkit
+BINARY := mcp-slack-block-kit
+PKG := github.com/hishamkaram/mcp-slack-block-kit
 
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'

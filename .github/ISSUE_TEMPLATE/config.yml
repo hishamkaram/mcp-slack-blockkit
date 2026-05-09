@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/hishamkaram/mcp-slack-blockkit/security/advisories/new
+    url: https://github.com/hishamkaram/mcp-slack-block-kit/security/advisories/new
     about: Report security issues privately via GitHub's Private Vulnerability Reporting — please do not open public issues for security concerns.
   - name: Question or discussion
-    url: https://github.com/hishamkaram/mcp-slack-blockkit/discussions
+    url: https://github.com/hishamkaram/mcp-slack-block-kit/discussions
     about: Ask a question, share an idea, or discuss design.

@@ -7,12 +7,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/slack-go/slack"
 
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/converter"
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/preview"
-	"github.com/hishamkaram/mcp-slack-blockkit/internal/splitter"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/converter"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/preview"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/splitter"
 )
 
-// ConvertInput is the schema for the convert_markdown_to_blockkit tool.
+// ConvertInput is the schema for the convert_markdown_to_block_kit tool.
 // Field tags are read by the SDK's jsonschema generator at registration
 // time.
 type ConvertInput struct {
@@ -25,7 +25,7 @@ type ConvertInput struct {
 	BlockIDPrefix    string            `json:"block_id_prefix,omitempty" jsonschema:"optional prefix for generated block_id values; empty means no block_id is set"`
 }
 
-// ConvertOutput is the schema for the convert_markdown_to_blockkit response.
+// ConvertOutput is the schema for the convert_markdown_to_block_kit response.
 // Blocks/Chunks are typed `any` rather than `json.RawMessage`: the
 // jsonschema-go inference treats RawMessage as []byte (integer array)
 // and rejects the nested object payload at validation time. Using `any`
@@ -44,7 +44,7 @@ func (s *Server) registerConvertTool() {
 	mcp.AddTool(
 		s.mcp,
 		&mcp.Tool{
-			Name: "convert_markdown_to_blockkit",
+			Name: "convert_markdown_to_block_kit",
 			Description: "Convert markdown into Slack Block Kit JSON. Auto mode picks " +
 				"between a single Slack `markdown` block (Feb 2025, ≤12k chars, no " +
 				"images, no oversized tables) and full deterministic decomposition " +

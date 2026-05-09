@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut a new release of mcp-slack-blockkit. Bump the version, move CHANGELOG `[Unreleased]` to a new version section, create a signed tag, push it, and confirm GoReleaser publishes successfully. Use when the maintainer asks for a release, a tag, or a version bump.
+description: Cut a new release of mcp-slack-block-kit. Bump the version, move CHANGELOG `[Unreleased]` to a new version section, create a signed tag, push it, and confirm GoReleaser publishes successfully. Use when the maintainer asks for a release, a tag, or a version bump.
 allowed-tools: Read, Edit, Bash, Grep
 ---
 
@@ -85,8 +85,8 @@ the release.
 
 ## 6. Post-release
 
-- Verify `brew upgrade mcp-slack-blockkit` (or first-time install) works.
-- Verify `go install github.com/hishamkaram/mcp-slack-blockkit/cmd/mcp-slack-blockkit@vX.Y.Z` works.
+- Verify `brew upgrade mcp-slack-block-kit` (or first-time install) works.
+- Verify `go install github.com/hishamkaram/mcp-slack-block-kit/cmd/mcp-slack-block-kit@vX.Y.Z` works.
 - Update the MCP Registry / Smithery / Glama listings with the new tag.
 
 ## Don't

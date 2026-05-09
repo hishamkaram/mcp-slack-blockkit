@@ -33,9 +33,9 @@ func main() {
 // can substitute pipes without touching os.Stdout / os.Stderr / os.Stdin.
 func newRootCmd(stderr io.Writer, stdout io.Writer, stdin io.Reader) *cobra.Command {
 	root := &cobra.Command{
-		Use:   "mcp-slack-blockkit",
+		Use:   "mcp-slack-block-kit",
 		Short: "MCP server that converts markdown into Slack Block Kit JSON",
-		Long: "mcp-slack-blockkit is an MCP server (and CLI) that converts " +
+		Long: "mcp-slack-block-kit is an MCP server (and CLI) that converts " +
 			"markdown into valid Slack Block Kit JSON. " +
 			"Run with no arguments to start the stdio MCP server, or use the " +
 			"`convert` subcommand for one-shot CLI conversion.",

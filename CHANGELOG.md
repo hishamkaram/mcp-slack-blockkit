@@ -7,12 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed (BREAKING — pre-1.0; no installed binaries in the wild)
+- Project renamed from `mcp-slack-blockkit` to `mcp-slack-block-kit` to match
+  Slack's own product naming ("Block Kit" is two words). Affects the GitHub
+  repo URL, Go module path (`github.com/hishamkaram/mcp-slack-block-kit`),
+  binary name (`mcp-slack-block-kit`), public Go package
+  (`block_kit`, in `block_kit/`), four MCP tool names
+  (`convert_markdown_to_block_kit`, `validate_block_kit`,
+  `preview_block_kit`, `lint_block_kit`; `split_blocks` unchanged), and the
+  cosign release-signature identity regex. GitHub auto-redirects the old
+  repo URL for ~12 months. External MCP client configs with
+  `"command": "mcp-slack-blockkit"` need to update to the new binary name.
+
 ### Added
 - `Renderer.ConvertWithWarnings(input) ([]slack.Block, []string, error)` —
   the full converter API, returning fallback warnings alongside blocks.
   `Renderer.Convert(input)` is now a thin wrapper that drops warnings,
   preserving the v0.1 signature.
-- `MCP convert_markdown_to_blockkit` tool: response `warnings` field now
+- `MCP convert_markdown_to_block_kit` tool: response `warnings` field now
   surfaces converter-side fallback notes (auto-mode routing decisions etc.),
   not just chunker/preview notes.
 - New nested-pattern detection in the auto-mode picker
@@ -52,17 +64,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Initial release.
 - Five MCP tools registered on top of `modelcontextprotocol/go-sdk` v1.6.0:
-  - `convert_markdown_to_blockkit` — markdown → Slack Block Kit, with
+  - `convert_markdown_to_block_kit` — markdown → Slack Block Kit, with
     auto-mode picker between the new `markdown` block (Feb 2025) and
     deterministic decomposition.
-  - `validate_blockkit` — full Slack constraint validation with
+  - `validate_block_kit` — full Slack constraint validation with
     structured violations.
-  - `preview_blockkit` — Block Kit Builder URL generation for one-click
+  - `preview_block_kit` — Block Kit Builder URL generation for one-click
     visual QA.
-  - `lint_blockkit` — near-limit and deprecated-pattern warnings.
+  - `lint_block_kit` — near-limit and deprecated-pattern warnings.
   - `split_blocks` — enforce 50-block-per-message + `only_one_table_allowed`.
 - `convert` CLI subcommand for offline testing.
-- `blockkit/` public Go library re-exports for embedded use.
+- `block_kit/` public Go library re-exports for embedded use.
 - Mention-sanitization layer that entity-escapes broadcast strings
   (`<!channel>`, `<@U…>`, etc.) by default — opt-in passthrough via
   `AllowBroadcasts`.
@@ -75,5 +87,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Mention sanitization is the documented security-critical path.
   See [SECURITY.md](SECURITY.md) and `.claude/rules/security.md`.
 
-[Unreleased]: https://github.com/hishamkaram/mcp-slack-blockkit/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/hishamkaram/mcp-slack-blockkit/releases/tag/v0.1.0
+[Unreleased]: https://github.com/hishamkaram/mcp-slack-block-kit/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.1.0

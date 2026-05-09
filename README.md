@@ -1,20 +1,20 @@
-# mcp-slack-blockkit
+# mcp-slack-block-kit
 
-[![CI](https://img.shields.io/github/actions/workflow/status/hishamkaram/mcp-slack-blockkit/ci.yml?branch=main&label=ci)](https://github.com/hishamkaram/mcp-slack-blockkit/actions/workflows/ci.yml)
-[![CodeQL](https://img.shields.io/github/actions/workflow/status/hishamkaram/mcp-slack-blockkit/codeql.yml?branch=main&label=codeql)](https://github.com/hishamkaram/mcp-slack-blockkit/actions/workflows/codeql.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/hishamkaram/mcp-slack-blockkit.svg)](https://pkg.go.dev/github.com/hishamkaram/mcp-slack-blockkit)
-[![Go Report Card](https://goreportcard.com/badge/github.com/hishamkaram/mcp-slack-blockkit)](https://goreportcard.com/report/github.com/hishamkaram/mcp-slack-blockkit)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/hishamkaram/mcp-slack-blockkit/badge)](https://scorecard.dev/viewer/?uri=github.com/hishamkaram/mcp-slack-blockkit)
-[![License: MIT](https://img.shields.io/github/license/hishamkaram/mcp-slack-blockkit)](LICENSE)
-[![Latest Release](https://img.shields.io/github/v/release/hishamkaram/mcp-slack-blockkit?sort=semver)](https://github.com/hishamkaram/mcp-slack-blockkit/releases/latest)
-[![Cosign verified](https://img.shields.io/badge/cosign-verified-brightgreen?logo=sigstore)](https://github.com/hishamkaram/mcp-slack-blockkit/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/hishamkaram/mcp-slack-block-kit/ci.yml?branch=main&label=ci)](https://github.com/hishamkaram/mcp-slack-block-kit/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/hishamkaram/mcp-slack-block-kit/codeql.yml?branch=main&label=codeql)](https://github.com/hishamkaram/mcp-slack-block-kit/actions/workflows/codeql.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/hishamkaram/mcp-slack-block-kit.svg)](https://pkg.go.dev/github.com/hishamkaram/mcp-slack-block-kit)
+[![Go Report Card](https://goreportcard.com/badge/github.com/hishamkaram/mcp-slack-block-kit)](https://goreportcard.com/report/github.com/hishamkaram/mcp-slack-block-kit)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/hishamkaram/mcp-slack-block-kit/badge)](https://scorecard.dev/viewer/?uri=github.com/hishamkaram/mcp-slack-block-kit)
+[![License: MIT](https://img.shields.io/github/license/hishamkaram/mcp-slack-block-kit)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/hishamkaram/mcp-slack-block-kit?sort=semver)](https://github.com/hishamkaram/mcp-slack-block-kit/releases/latest)
+[![Cosign verified](https://img.shields.io/badge/cosign-verified-brightgreen?logo=sigstore)](https://github.com/hishamkaram/mcp-slack-block-kit/releases/latest)
 
 > A single-binary [Model Context Protocol][mcp] server (and CLI) that
-> converts AI-generated markdown into valid [Slack Block Kit][blockkit] JSON.
+> converts AI-generated markdown into valid [Slack Block Kit][block-kit] JSON.
 > Credential-free, runs over stdio, ships as a static Go binary.
 
 [mcp]: https://modelcontextprotocol.io/
-[blockkit]: https://docs.slack.dev/block-kit/
+[block-kit]: https://docs.slack.dev/block-kit/
 
 ---
 
@@ -24,17 +24,17 @@ Five MCP tools your AI assistant can call:
 
 | Tool | What it does |
 |---|---|
-| **`convert_markdown_to_blockkit`** | Markdown → Block Kit JSON. Auto mode picks between Slack's new (Feb 2025) `markdown` block and full deterministic decomposition into `rich_text` / `section` / `header` / `image` / `divider`. |
-| **`validate_blockkit`** | Validates a payload against the documented Slack constraints (per-block char limits, count limits, XOR rules, `only_one_table_allowed`, the 12k-char `markdown_block` cap, etc.) with structured violations + fix hints. |
-| **`preview_blockkit`** | Returns a Block Kit Builder URL — one click to a live visual preview in Slack's own builder. No workspace credentials needed. |
-| **`lint_blockkit`** | Warns on near-limit content, deprecated patterns, and accessibility gaps (e.g. missing image `alt_text`). Always advisory. |
+| **`convert_markdown_to_block_kit`** | Markdown → Block Kit JSON. Auto mode picks between Slack's new (Feb 2025) `markdown` block and full deterministic decomposition into `rich_text` / `section` / `header` / `image` / `divider`. |
+| **`validate_block_kit`** | Validates a payload against the documented Slack constraints (per-block char limits, count limits, XOR rules, `only_one_table_allowed`, the 12k-char `markdown_block` cap, etc.) with structured violations + fix hints. |
+| **`preview_block_kit`** | Returns a Block Kit Builder URL — one click to a live visual preview in Slack's own builder. No workspace credentials needed. |
+| **`lint_block_kit`** | Warns on near-limit content, deprecated patterns, and accessibility gaps (e.g. missing image `alt_text`). Always advisory. |
 | **`split_blocks`** | Splits an oversized payload into multiple Slack-API-compliant chunks on the >50-block axis, with `only_one_table_allowed` enforcement. |
 
 Plus a **`convert` CLI** for offline testing without an MCP client.
 
 ### Conversion modes
 
-`convert_markdown_to_blockkit` accepts a `mode` parameter (CLI: `--mode`):
+`convert_markdown_to_block_kit` accepts a `mode` parameter (CLI: `--mode`):
 
 | Mode | What it produces | When to use |
 |---|---|---|
@@ -72,20 +72,20 @@ threat model.
 
 ```sh
 # Homebrew (macOS / Linux)
-brew install hishamkaram/tap/mcp-slack-blockkit
+brew install hishamkaram/tap/mcp-slack-block-kit
 
 # Go install
-go install github.com/hishamkaram/mcp-slack-blockkit/cmd/mcp-slack-blockkit@latest
+go install github.com/hishamkaram/mcp-slack-block-kit/cmd/mcp-slack-block-kit@latest
 
 # Or grab a prebuilt binary from Releases
-# https://github.com/hishamkaram/mcp-slack-blockkit/releases/latest
+# https://github.com/hishamkaram/mcp-slack-block-kit/releases/latest
 ```
 
 Verify a release with [cosign](https://docs.sigstore.dev/cosign/overview/):
 
 ```sh
 cosign verify-blob \
-  --certificate-identity-regexp 'https://github\.com/hishamkaram/mcp-slack-blockkit/.+' \
+  --certificate-identity-regexp 'https://github\.com/hishamkaram/mcp-slack-block-kit/.+' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   --certificate checksums.txt.pem --signature checksums.txt.sig \
   checksums.txt
@@ -99,8 +99,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`
 ```json
 {
   "mcpServers": {
-    "blockkit": {
-      "command": "mcp-slack-blockkit",
+    "block_kit": {
+      "command": "mcp-slack-block-kit",
       "args": []
     }
   }
@@ -113,7 +113,7 @@ and any other MCP-compatible client that supports the stdio transport.
 ## Use it from the CLI
 
 ````sh
-cat <<'EOF' | mcp-slack-blockkit convert --mode rich_text --pretty
+cat <<'EOF' | mcp-slack-block-kit convert --mode rich_text --pretty
 # Hello
 
 A paragraph with **bold**, *italic*, `code`, and a [link](https://example.com).
@@ -132,21 +132,21 @@ Stdout receives the Block Kit JSON only — pipe straight into `jq` or
 Block Kit Builder URL:
 
 ```sh
-echo '# title' | mcp-slack-blockkit convert --preview
+echo '# title' | mcp-slack-block-kit convert --preview
 # stdout: {"blocks":[{"type":"header",...}]}
 # stderr: preview: https://app.slack.com/block-kit-builder/#%7B...%7D
 ```
 
 Other useful flags: `--mode={auto|rich_text|markdown_block|section_mrkdwn}`,
 `--allow-broadcasts`, `--block-id-prefix=<str>`, `--max-input-bytes=<n>`,
-`--pretty`. Full help: `mcp-slack-blockkit convert --help`.
+`--pretty`. Full help: `mcp-slack-block-kit convert --help`.
 
 ## Use it from Go
 
 ```go
-import "github.com/hishamkaram/mcp-slack-blockkit/blockkit"
+import "github.com/hishamkaram/mcp-slack-block-kit/block_kit"
 
-r, err := blockkit.NewConverter(blockkit.DefaultOptions())
+r, err := block_kit.NewConverter(block_kit.DefaultOptions())
 if err != nil { panic(err) }
 
 // ConvertWithWarnings returns blocks plus any fallback notes (e.g. when
@@ -159,7 +159,7 @@ for _, w := range warnings {
 }
 
 // Validate before sending:
-result := blockkit.NewValidator().Validate(blocks)
+result := block_kit.NewValidator().Validate(blocks)
 if !result.Valid {
     for _, e := range result.Errors {
         fmt.Println(e.Path, e.Code, e.Message)
@@ -167,11 +167,11 @@ if !result.Valid {
 }
 
 // Visual QA via Block Kit Builder:
-pr, _ := blockkit.PreviewURL(blocks)
+pr, _ := block_kit.PreviewURL(blocks)
 fmt.Println("preview:", pr.URL)
 ```
 
-Full API reference: [pkg.go.dev](https://pkg.go.dev/github.com/hishamkaram/mcp-slack-blockkit/blockkit).
+Full API reference: [pkg.go.dev](https://pkg.go.dev/github.com/hishamkaram/mcp-slack-block-kit/blockkit).
 
 ## Why this and not...
 

@@ -74,30 +74,30 @@ internal packages.
 
 - `server.go` — `New(version) → *Server` constructs the MCP server,
   registers all five tools, exposes `RunStdio(ctx)`.
-- `convert_tool.go` — `convert_markdown_to_blockkit`. Wires
+- `convert_tool.go` — `convert_markdown_to_block_kit`. Wires
   converter + splitter + preview into a single response.
-- `validate_tool.go` — `validate_blockkit`. Includes the shared
+- `validate_tool.go` — `validate_block_kit`. Includes the shared
   `decodeBlocksInput` helper that handles both blocks-form and
   payload-form input via `slack.Blocks`'s per-element UnmarshalJSON.
-- `preview_tool.go` — `preview_blockkit`. Thin wrapper over
+- `preview_tool.go` — `preview_block_kit`. Thin wrapper over
   `internal/preview`.
-- `lint_tool.go` — `lint_blockkit`. Always advisory (only warnings).
+- `lint_tool.go` — `lint_block_kit`. Always advisory (only warnings).
   Configurable thresholds (default 90%) for near-limit checks.
 - `split_tool.go` — `split_blocks`. Thin wrapper over
   `internal/splitter.ChunkBlocks`.
 
-### `cmd/mcp-slack-blockkit/`
+### `cmd/mcp-slack-block-kit/`
 
 Cobra entry point. `main.go` (root + version + slog setup), `server.go`
 (default `server` subcommand → `internal/server.RunStdio`), `convert.go`
 (CLI subcommand → `internal/converter` directly).
 
-### `blockkit/`
+### `block_kit/`
 
 Public Go library re-exports. External consumers get a single stable
-import path: `github.com/hishamkaram/mcp-slack-blockkit/blockkit`. Type
+import path: `github.com/hishamkaram/mcp-slack-block-kit/blockkit`. Type
 aliases for `Converter`, `Options`, `Mode`, `Validator`, etc. Functions
-delegate to `internal/`. Tests live in `blockkit_test` (external
+delegate to `internal/`. Tests live in `block_kit_test` (external
 package) so any leak of internal-only behavior fails compilation here.
 
 ## AST → Block Kit mapping
@@ -205,8 +205,8 @@ Slack workspace can click through and verify visually. Run with
 
 ## Things to never silently change
 
-- The 5-tool MCP surface (`convert_markdown_to_blockkit`,
-  `validate_blockkit`, `preview_blockkit`, `lint_blockkit`,
+- The 5-tool MCP surface (`convert_markdown_to_block_kit`,
+  `validate_block_kit`, `preview_block_kit`, `lint_block_kit`,
   `split_blocks`). Adding tools is fine; renaming or removing breaks
   every existing client config.
 - The `Options` struct's field names. They appear in user-facing tool

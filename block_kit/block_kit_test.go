@@ -1,19 +1,19 @@
-package blockkit_test
+package block_kit_test
 
 import (
 	"encoding/json"
 	"strings"
 	"testing"
 
-	"github.com/hishamkaram/mcp-slack-blockkit/blockkit"
+	"github.com/hishamkaram/mcp-slack-block-kit/block_kit"
 )
 
-// These tests live in blockkit_test (external package) on purpose: they
+// These tests live in block_kit_test (external package) on purpose: they
 // must consume the public API the same way an external module would, so
 // any leak of internal-only behavior fails compilation here first.
 
 func TestPublicAPI_Convert(t *testing.T) {
-	r, err := blockkit.NewConverter(blockkit.DefaultOptions())
+	r, err := block_kit.NewConverter(block_kit.DefaultOptions())
 	if err != nil {
 		t.Fatalf("NewConverter: %v", err)
 	}
@@ -31,10 +31,10 @@ func TestPublicAPI_Convert(t *testing.T) {
 }
 
 func TestPublicAPI_Validate(t *testing.T) {
-	r, _ := blockkit.NewConverter(blockkit.Options{Mode: blockkit.ModeRichText})
+	r, _ := block_kit.NewConverter(block_kit.Options{Mode: block_kit.ModeRichText})
 	blocks, _ := r.Convert("# Title")
 
-	v := blockkit.NewValidator()
+	v := block_kit.NewValidator()
 	result := v.Validate(blocks)
 	if !result.Valid {
 		t.Errorf("expected valid, got errors=%+v", result.Errors)
@@ -42,21 +42,21 @@ func TestPublicAPI_Validate(t *testing.T) {
 }
 
 func TestPublicAPI_PreviewURL(t *testing.T) {
-	r, _ := blockkit.NewConverter(blockkit.Options{Mode: blockkit.ModeRichText})
+	r, _ := block_kit.NewConverter(block_kit.Options{Mode: block_kit.ModeRichText})
 	blocks, _ := r.Convert("body")
-	pr, err := blockkit.PreviewURL(blocks)
+	pr, err := block_kit.PreviewURL(blocks)
 	if err != nil {
 		t.Fatalf("PreviewURL: %v", err)
 	}
-	if !strings.HasPrefix(pr.URL, blockkit.BuilderHost) {
-		t.Errorf("URL = %q, want prefix %q", pr.URL, blockkit.BuilderHost)
+	if !strings.HasPrefix(pr.URL, block_kit.BuilderHost) {
+		t.Errorf("URL = %q, want prefix %q", pr.URL, block_kit.BuilderHost)
 	}
 }
 
 func TestPublicAPI_ChunkBlocks(t *testing.T) {
-	r, _ := blockkit.NewConverter(blockkit.Options{Mode: blockkit.ModeRichText})
+	r, _ := block_kit.NewConverter(block_kit.Options{Mode: block_kit.ModeRichText})
 	blocks, _ := r.Convert(strings.Repeat("paragraph.\n\n", 60))
-	chunks := blockkit.ChunkBlocks(blocks, blockkit.DefaultMaxBlocksPerChunk)
+	chunks := block_kit.ChunkBlocks(blocks, block_kit.DefaultMaxBlocksPerChunk)
 	if len(chunks) < 1 {
 		t.Errorf("got 0 chunks for 60+ paragraphs")
 	}
@@ -64,21 +64,21 @@ func TestPublicAPI_ChunkBlocks(t *testing.T) {
 
 func TestPublicAPI_SplitText(t *testing.T) {
 	in := strings.Repeat("word ", 200)
-	out := blockkit.SplitText(in, 100, 10)
+	out := block_kit.SplitText(in, 100, 10)
 	if len(out) < 2 {
 		t.Errorf("expected ≥2 chunks; got %d", len(out))
 	}
 }
 
 func TestPublicAPI_StrictValidator_FlagsDeprecated(t *testing.T) {
-	r, _ := blockkit.NewConverter(blockkit.Options{Mode: blockkit.ModeSectionMrkdwn})
+	r, _ := block_kit.NewConverter(block_kit.Options{Mode: block_kit.ModeSectionMrkdwn})
 	// section_mrkdwn mode produces section blocks with mrkdwn text; strict
 	// validator should flag those as deprecated.
 	blocks, _ := r.Convert("plain body")
 	if len(blocks) == 0 {
 		t.Skip("no blocks emitted for input — skip strict check")
 	}
-	result := blockkit.NewStrictValidator().Validate(blocks)
+	result := block_kit.NewStrictValidator().Validate(blocks)
 	// Note: section_mrkdwn is not yet specially distinguished in the
 	// converter's emission path; this assertion may not fire. Test
 	// documents the API surface.
