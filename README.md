@@ -71,15 +71,15 @@ threat model.
 ## Install
 
 ```sh
-# Homebrew (macOS / Linux)
-brew install hishamkaram/tap/mcp-slack-block-kit
-
 # Go install
 go install github.com/hishamkaram/mcp-slack-block-kit/cmd/mcp-slack-block-kit@latest
 
-# Or grab a prebuilt binary from Releases
+# Or grab a prebuilt binary from Releases (signed via cosign keyless)
 # https://github.com/hishamkaram/mcp-slack-block-kit/releases/latest
 ```
+
+> Homebrew tap (`brew install hishamkaram/tap/mcp-slack-block-kit`) is
+> coming in v0.1.1 — the tap repo + publishing PAT need to be set up first.
 
 Verify a release with [cosign](https://docs.sigstore.dev/cosign/overview/):
 

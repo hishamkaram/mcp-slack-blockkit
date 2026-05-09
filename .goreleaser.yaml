@@ -74,21 +74,23 @@ changelog:
     - title: Other
       order: 999
 
-# Homebrew tap formula publishing. Requires a public repo named
-# `homebrew-tap` under the same owner; see docs.brew.sh/Taps.
-brews:
-  - name: mcp-slack-block-kit
-    repository:
-      owner: hishamkaram
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    homepage: https://github.com/hishamkaram/mcp-slack-block-kit
-    description: "MCP server that converts markdown into Slack Block Kit JSON"
-    license: MIT
-    test: |
-      system "#{bin}/mcp-slack-block-kit", "--version"
-    install: |
-      bin.install "mcp-slack-block-kit"
+# Homebrew tap formula publishing — disabled until the
+# `hishamkaram/homebrew-tap` repo + HOMEBREW_TAP_GITHUB_TOKEN secret are
+# in place. Re-enable in v0.1.1 by uncommenting and running the release.
+# See docs.brew.sh/Taps.
+# brews:
+#   - name: mcp-slack-block-kit
+#     repository:
+#       owner: hishamkaram
+#       name: homebrew-tap
+#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+#     homepage: https://github.com/hishamkaram/mcp-slack-block-kit
+#     description: "MCP server that converts markdown into Slack Block Kit JSON"
+#     license: MIT
+#     test: |
+#       system "#{bin}/mcp-slack-block-kit", "--version"
+#     install: |
+#       bin.install "mcp-slack-block-kit"
 
 # CycloneDX SBOM generated via syft (bundled with goreleaser).
 sboms:
@@ -169,12 +171,6 @@ release:
 
     ### Install
 
-    Homebrew:
-
-    ```sh
-    brew install hishamkaram/tap/mcp-slack-block-kit
-    ```
-
     Go install:
 
     ```sh
@@ -183,6 +179,9 @@ release:
 
     Or grab a prebuilt binary from the assets below — multi-arch
     (linux/darwin/windows × amd64/arm64), all signed.
+
+    > **Note**: Homebrew tap (`brew install hishamkaram/tap/...`) is
+    > coming in v0.1.1 once the tap repo + publishing PAT are wired up.
 
     ### Verify a release artifact (cosign keyless)
 
