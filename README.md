@@ -2,7 +2,6 @@
 
 [![CI](https://img.shields.io/github/actions/workflow/status/hishamkaram/mcp-slack-blockkit/ci.yml?branch=main&label=ci)](https://github.com/hishamkaram/mcp-slack-blockkit/actions/workflows/ci.yml)
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/hishamkaram/mcp-slack-blockkit/codeql.yml?branch=main&label=codeql)](https://github.com/hishamkaram/mcp-slack-blockkit/actions/workflows/codeql.yml)
-[![codecov](https://codecov.io/gh/hishamkaram/mcp-slack-blockkit/branch/main/graph/badge.svg)](https://codecov.io/gh/hishamkaram/mcp-slack-blockkit)
 [![Go Reference](https://pkg.go.dev/badge/github.com/hishamkaram/mcp-slack-blockkit.svg)](https://pkg.go.dev/github.com/hishamkaram/mcp-slack-blockkit)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hishamkaram/mcp-slack-blockkit)](https://goreportcard.com/report/github.com/hishamkaram/mcp-slack-blockkit)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/hishamkaram/mcp-slack-blockkit/badge)](https://scorecard.dev/viewer/?uri=github.com/hishamkaram/mcp-slack-blockkit)
@@ -158,5 +157,5 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 ---
 
 > **Note**: some badges may take 24–48 hours to populate after the
-> first release (Codecov, OSSF Scorecard, Go Report Card all crawl
-> on their own schedules).
+> first release (OSSF Scorecard, Go Report Card crawl on their own
+> schedules; CI/CodeQL update on the next push).

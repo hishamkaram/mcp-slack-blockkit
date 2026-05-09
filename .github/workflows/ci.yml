@@ -31,19 +31,6 @@ jobs:
       - name: Coverage report
         run: go tool cover -func=cover.out
 
-      - name: Upload coverage to Codecov
-        # First-time setup: sign in at https://codecov.io with the GitHub repo
-        # and add CODECOV_TOKEN as a repo secret. Until then this step
-        # uploads anonymously (Codecov accepts public-repo uploads without a
-        # token but rate-limits more aggressively).
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./cover.out
-          flags: unittests
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
       - name: Coverage gate (≥80% on listed packages)
         # Per research.md §8 mandate: blockkit + the four conversion-engine
         # packages must hit at least 80% statement coverage. Other packages
@@ -78,7 +65,7 @@ jobs:
         with:
           go-version: stable
           cache: true
-      - uses: golangci/golangci-lint-action@v6
+      - uses: golangci/golangci-lint-action@v7
         with:
           version: v2.12.0
           args: --timeout=5m
