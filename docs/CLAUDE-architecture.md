@@ -132,6 +132,77 @@ reference for the high-traffic cases:
   ceiling AND opens a new chunk before any second `TableBlock`
   (Slack's `only_one_table_allowed`). Greedy walk; preserves order.
 
+## Nested-element handling (split-emit)
+
+Slack's rich_text element schema is restrictive about what containers can
+hold. Verified against the official spec, node-slack-sdk types,
+slack-go/slack source, and python-slack-sdk:
+
+| Container | Allowed direct children |
+|---|---|
+| `rich_text` (block) | `rich_text_section`, `rich_text_list`, `rich_text_preformatted`, `rich_text_quote` (any combination, any order) |
+| `rich_text_section.elements` | inline-only (text, link, user, channel, usergroup, team, emoji, broadcast, color, date) |
+| `rich_text_list.elements` | `rich_text_section` items only |
+| `rich_text_preformatted.elements` | `text` or `link` only — no emphasis |
+| `rich_text_quote.elements` | inline-only (same union as section) |
+
+So CommonMark patterns like "code block inside a blockquote" or "table
+inside a list item" are **not representable** as nested children in
+rich_text. We handle them in two layers:
+
+1. **Auto-mode picker** (`internal/converter/markdown_block.go::shouldUseMarkdownBlock`)
+   walks the AST and detects five non-representable nesting patterns:
+   - code-in-blockquote
+   - code-in-list
+   - table-in-blockquote
+   - table-in-list
+   - list-in-blockquote
+
+   When any is detected, the picker returns `false` so the input flows
+   through rich_text decomposition (Layer 2). Slack's `markdown` block
+   *might* render these combinations correctly, but the docs only
+   document features individually — the combination behavior is
+   UNVERIFIED. Routing through rich_text gives a predictable visual
+   outcome instead of betting on Slack's parser.
+
+2. **rich_text decomposition (split-emit)** in
+   `internal/converter/blocks.go::handleBlockquote` and
+   `internal/converter/lists.go::handleList`. When the handler hits a
+   non-representable child, it flushes the in-progress
+   quote/list as its own top-level rich_text block, dispatches the inner
+   block via the walker (which emits a separate top-level block), then
+   opens a new sibling quote/list for the remaining children. Ordered
+   lists set `Offset` on the post-split sibling so numbering continues
+   (Slack: `Offset = N → first number = N+1`).
+
+When auto mode triggers Layer 2 because of a detected pattern,
+`Renderer.ConvertWithWarnings` emits one warning naming the patterns so
+the MCP caller can flag the visual-fidelity tradeoff. Explicit
+`mode=rich_text` callers get no warning — they opted in.
+
+### Visual-rendering caveats (SCHEMA-ONLY / UNVERIFIED)
+
+Three claims in the design are derived from typed schemas and spec
+language but lack empirical screenshot verification:
+
+- **Sibling rich_text decomposition rendering**: emitting
+  `[rich_text(quote_prefix), rich_text(preformatted), rich_text(quote_suffix)]`
+  as adjacent top-level blocks. The quote-bar visually does NOT span
+  the embedded code; readers see three stacked decorations. This is
+  derived from the slack-go canonical fixture; the visual claim itself
+  is unscreenshotted.
+- **Cross-block ordered-list numbering continuation via `Offset`**:
+  spec defines `Offset` as a single-list starting-number control; the
+  cross-block visual continuity is not documented but follows from the
+  off-by-one math.
+- **`markdown` block rendering of code-in-quote / list-in-quote /
+  code-in-list**: not documented for combinations.
+
+The test suite includes `TestNested_PrintBuilderURLs` which prints a
+Block Kit Builder URL for each pattern × mode. A maintainer with a
+Slack workspace can click through and verify visually. Run with
+`go test -v -run TestNested_PrintBuilderURLs ./internal/converter/`.
+
 ## Things to never silently change
 
 - The 5-tool MCP surface (`convert_markdown_to_blockkit`,

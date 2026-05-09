@@ -94,6 +94,13 @@ var ErrMarkdownBlockTooLarge = converter.ErrMarkdownBlockTooLarge
 func DefaultOptions() Options { return converter.DefaultOptions() }
 
 // NewConverter constructs a Converter with the given options.
+//
+// The returned Converter exposes both Convert (returning blocks + error
+// only) and ConvertWithWarnings (additionally returning a slice of
+// human-readable warnings explaining mode-fallback decisions, e.g.
+// "auto mode routed to rich_text decomposition because input contains
+// code-in-blockquote"). Callers integrating with an LLM should prefer
+// ConvertWithWarnings so warnings can be surfaced back to the model.
 func NewConverter(opts Options) (*Converter, error) { return converter.New(opts) }
 
 // --- Validator --------------------------------------------------------------

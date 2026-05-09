@@ -68,7 +68,7 @@ func (s *Server) handleConvert(_ context.Context, _ *mcp.CallToolRequest, in Con
 		return errorResult("converter init failed: " + err.Error()), ConvertOutput{}, nil
 	}
 
-	blocks, err := r.Convert(in.Markdown)
+	blocks, convWarnings, err := r.ConvertWithWarnings(in.Markdown)
 	if err != nil {
 		return errorResult("conversion failed: " + err.Error()), ConvertOutput{}, nil
 	}
@@ -79,6 +79,9 @@ func (s *Server) handleConvert(_ context.Context, _ *mcp.CallToolRequest, in Con
 		// response. `any` keeps the inferred schema permissive.
 		Blocks: blocks,
 	}
+	// Surface converter-side warnings (auto-mode fallback notes etc.) to
+	// the MCP caller so an LLM can flag the visual-fidelity tradeoff.
+	out.Warnings = append(out.Warnings, convWarnings...)
 
 	// Optional split into chunks. Only the "both" / "blocks" strategies
 	// fire today; "paragraphs" splitting is handled inside the converter.

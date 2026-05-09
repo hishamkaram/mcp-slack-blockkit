@@ -6,51 +6,75 @@ import (
 	extast "github.com/yuin/goldmark/extension/ast"
 )
 
-// handleList emits a rich_text block containing one or more rich_text_list
-// elements. Slack rejects nested rich_text_list children, so nested markdown
-// lists are flattened into sibling rich_text_list elements with incrementing
-// indent values: a 2-level nested list becomes (outer items @indent=0,
-// nested items @indent=1, remaining outer items @indent=0).
+// handleList emits one or more top-level rich_text blocks representing a
+// markdown list. The simple case (only paragraphs and nested lists) produces
+// a single rich_text block. The complex case (a list item contains a code
+// block or table — non-representable inside a rich_text_section) is split:
+// the in-progress list flushes as its own rich_text block, the inner block
+// emits as a separate top-level block, and a new sibling list opens with
+// `Offset` set so ordered numbering continues across the split.
 func (w *walker) handleList(list *ast.List) error {
 	var elements []slack.RichTextElement
-	w.flattenList(list, 0, &elements)
-	if len(elements) == 0 {
-		return nil
+
+	flushBlock := func() {
+		if len(elements) == 0 {
+			return
+		}
+		rt := slack.NewRichTextBlock(w.nextBlockID(), elements...)
+		w.blocks = append(w.blocks, rt)
+		elements = nil
 	}
-	rt := slack.NewRichTextBlock(w.nextBlockID(), elements...)
-	w.blocks = append(w.blocks, rt)
+
+	if err := w.flattenList(list, 0, &elements, flushBlock); err != nil {
+		return err
+	}
+	flushBlock()
 	return nil
 }
 
-// flattenList walks one list level and appends rich_text_list elements to out.
-// It maintains a "run" of consecutive same-depth items and flushes the run
-// each time a nested list is encountered, so document-order is preserved
-// across the parent → nested → parent transitions Slack uses for nesting.
-func (w *walker) flattenList(list *ast.List, depth int, out *[]slack.RichTextElement) {
+// flattenList walks one list level and appends rich_text_list elements to
+// out. When a list ITEM contains a non-representable child (FencedCodeBlock,
+// CodeBlock, Table), the in-progress list flushes, the inner block emits as
+// its own top-level block via dispatchBlock, and the next items open a new
+// sibling rich_text_list with `Offset` set for ordered-list continuity.
+//
+// Nested lists keep the existing sibling-with-incrementing-indent pattern —
+// they are not "non-representable"; rich_text_list children that are
+// themselves rich_text_list elements are simply not allowed by Slack's
+// schema, so we represent the nesting by emitting siblings.
+func (w *walker) flattenList(list *ast.List, depth int, out *[]slack.RichTextElement, flushBlock func()) error {
 	style := slack.RTEListBullet
 	if list.IsOrdered() {
 		style = slack.RTEListOrdered
 	}
 
-	// offset is set only on the first emitted sibling for an ordered list
-	// with a non-default Start (e.g. `3.` to begin numbering at 3). Slack's
-	// `offset` is relative: 0 means "start at 1 / the marker's natural number."
-	var firstOffset int
+	// baseStart is the natural starting number for the first item. For
+	// ordered lists, defaults to 1 unless the markdown specifies a different
+	// `start` (e.g. `5.` to begin at 5). For bullet lists, irrelevant.
+	baseStart := 1
 	if list.IsOrdered() && list.Start > 1 {
-		firstOffset = list.Start - 1
+		baseStart = list.Start
 	}
-	firstFlushDone := false
+
+	// itemsConsumed counts list items emitted across ALL sibling
+	// rich_text_list elements at this depth so we can derive Offset on each
+	// new sibling. For a list split as [items 1,2] + (code) + [items 3,4]:
+	// after the second flush itemsConsumed=4 and the new sibling has
+	// len(run)=2, giving Offset = (baseStart-1) + (4-2) = 2 → first item
+	// renders as "3" (Slack: Offset=N → first number = N+1).
+	itemsConsumed := 0
 
 	var run []slack.RichTextElement
-	flush := func() {
+	flushRun := func() {
 		if len(run) == 0 {
 			return
 		}
 		listEl := slack.NewRichTextList(style, depth, run...)
-		if !firstFlushDone {
-			listEl.Offset = firstOffset
-			firstFlushDone = true
+		offset := (baseStart - 1) + (itemsConsumed - len(run))
+		if offset < 0 {
+			offset = 0
 		}
+		listEl.Offset = offset
 		*out = append(*out, listEl)
 		run = nil
 	}
@@ -61,9 +85,47 @@ func (w *walker) flattenList(list *ast.List, depth int, out *[]slack.RichTextEle
 			continue
 		}
 
+		// Detect non-representable children of this item. Nested lists are
+		// NOT non-representable; they handle themselves below.
+		var splitInner []ast.Node
+		for c := li.FirstChild(); c != nil; c = c.NextSibling() {
+			switch c.(type) {
+			case *ast.FencedCodeBlock, *ast.CodeBlock, *extast.Table:
+				splitInner = append(splitInner, c)
+			}
+		}
+
+		if len(splitInner) > 0 {
+			// Split the list around the inner block(s). The item's
+			// pre-split content (paragraphs / inline-only children) becomes
+			// the section for THIS list position; then we flush the list
+			// and the rich_text block; then dispatch each inner block as
+			// its own top-level block; subsequent items open a new sibling
+			// list with continued Offset.
+			sec := w.renderListItemSectionExcluding(li, splitInner)
+			if sec != nil {
+				run = append(run, sec)
+				itemsConsumed++
+			} else {
+				// Even if the item has no pre-split content, count it as
+				// consumed so the post-split numbering reflects its position.
+				itemsConsumed++
+			}
+			flushRun()
+			flushBlock()
+			for _, inner := range splitInner {
+				if err := w.dispatchBlock(inner); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+
+		// Normal item: render the section, accumulate.
 		sec := w.renderListItemSection(li)
 		if sec != nil {
 			run = append(run, sec)
+			itemsConsumed++
 		}
 
 		// Walk children for nested lists in document order. When we hit one,
@@ -72,12 +134,15 @@ func (w *walker) flattenList(list *ast.List, depth int, out *[]slack.RichTextEle
 		// rendering convention).
 		for c := li.FirstChild(); c != nil; c = c.NextSibling() {
 			if nl, ok := c.(*ast.List); ok {
-				flush()
-				w.flattenList(nl, depth+1, out)
+				flushRun()
+				if err := w.flattenList(nl, depth+1, out, flushBlock); err != nil {
+					return err
+				}
 			}
 		}
 	}
-	flush()
+	flushRun()
+	return nil
 }
 
 // renderListItemSection produces the rich_text_section for one list item.
@@ -88,6 +153,15 @@ func (w *walker) flattenList(list *ast.List, depth int, out *[]slack.RichTextEle
 // Returns nil if the item is effectively empty (e.g. a list-item that only
 // contains a nested list).
 func (w *walker) renderListItemSection(li *ast.ListItem) *slack.RichTextSection {
+	return w.renderListItemSectionExcluding(li, nil)
+}
+
+// renderListItemSectionExcluding is like renderListItemSection but skips
+// any of the listed AST nodes when building the section content. Used by
+// the split-emit path: the code blocks / tables that triggered the split
+// must NOT also appear as text in the section, since they're being emitted
+// as their own top-level blocks.
+func (w *walker) renderListItemSectionExcluding(li *ast.ListItem, exclude []ast.Node) *slack.RichTextSection {
 	var elements []slack.RichTextSectionElement
 
 	// Task-list checkbox prefix. We deliberately do NOT include a trailing
@@ -103,18 +177,24 @@ func (w *walker) renderListItemSection(li *ast.ListItem) *slack.RichTextSection 
 		elements = append(elements, slack.NewRichTextSectionTextElement(prefix, nil))
 	}
 
-	// Walk block-level children of the list item, excluding nested lists.
-	// A list item typically has a single Paragraph child holding the inline
-	// content; loose-list items may have multiple block children. We feed
-	// each non-list child through the inline renderer and concatenate the
-	// element streams.
+	skip := make(map[ast.Node]bool, len(exclude))
+	for _, n := range exclude {
+		skip[n] = true
+	}
+
+	// Walk block-level children of the list item, excluding nested lists
+	// (handled as siblings by the parent flattener) and excluded nodes
+	// (passed in by the split-emit path).
 	for c := li.FirstChild(); c != nil; c = c.NextSibling() {
+		if skip[c] {
+			continue
+		}
 		if _, ok := c.(*ast.List); ok {
 			continue
 		}
 		els := renderInlinesWithOpts(c, w.source, w.opts)
 		// Insert a separating space between consecutive block children so
-		// adjacent paragraphs don't collide on the boundary.
+		// adjacent paragraphs (loose lists) don't collide on the boundary.
 		if len(elements) > 0 && len(els) > 0 {
 			elements = append(elements, slack.NewRichTextSectionTextElement(" ", nil))
 		}

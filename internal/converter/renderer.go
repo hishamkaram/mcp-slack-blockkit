@@ -60,24 +60,37 @@ func (r *Renderer) Options() Options {
 	return r.opts
 }
 
-// Convert turns markdown into a flat slice of Slack blocks. The slice is
-// always non-nil but may be empty for whitespace-only input.
+// Convert turns markdown into a flat slice of Slack blocks. Convenience
+// wrapper around ConvertWithWarnings that drops the warnings slice — use
+// ConvertWithWarnings when you want to surface fallback notes to callers
+// (e.g. "input contains code-in-blockquote; using rich_text decomposition").
+func (r *Renderer) Convert(input string) ([]slack.Block, error) {
+	blocks, _, err := r.ConvertWithWarnings(input)
+	return blocks, err
+}
+
+// ConvertWithWarnings is the full API. Same blocks output as Convert plus
+// a slice of human-readable warnings explaining mode-fallback decisions
+// the caller should know about. Warnings are NEVER errors — every warning
+// path still produces a valid Block Kit payload.
 //
 // Mode dispatch:
 //   - ModeMarkdownBlock: emit a single slack.MarkdownBlock with the raw
 //     markdown text. Returns ErrMarkdownBlockTooLarge if input >12,000 chars.
 //   - ModeAuto: peek at the AST to decide between markdown_block (short
-//     LLM-style outputs with no images and no oversized tables) and full
-//     decomposition. Falls through to decomposition when the picker says no.
+//     LLM-style outputs with no images, no oversized tables, and no
+//     non-representable nesting patterns) and full rich_text decomposition.
+//     When the picker falls through specifically because of a nested-block
+//     pattern, ConvertWithWarnings emits one warning naming the patterns,
+//     so callers can flag the visual-fidelity tradeoff.
 //   - ModeRichText / ModeSectionMrkdwn: always run the full decomposition
-//     walker. (ModeSectionMrkdwn doesn't yet emit section blocks for
-//     paragraphs — the v0.1 walker produces rich_text. A future step can
-//     add a section.mrkdwn-only path if downstream consumers need it.)
+//     walker. No warnings are emitted in these modes — the user explicitly
+//     opted in to the decomposition path.
 //
 // All paths share the same MaxInputBytes ceiling (configurable via Options).
-func (r *Renderer) Convert(input string) ([]slack.Block, error) {
+func (r *Renderer) ConvertWithWarnings(input string) ([]slack.Block, []string, error) {
 	if r.opts.MaxInputBytes > 0 && len(input) > r.opts.MaxInputBytes {
-		return nil, fmt.Errorf("%w: %d bytes (limit %d)",
+		return nil, nil, fmt.Errorf("%w: %d bytes (limit %d)",
 			ErrInputTooLarge, len(input), r.opts.MaxInputBytes)
 	}
 
@@ -85,23 +98,36 @@ func (r *Renderer) Convert(input string) ([]slack.Block, error) {
 	// block list. Without this short-circuit ModeAuto would emit an
 	// empty markdown block, which Slack rejects.
 	if strings.TrimSpace(input) == "" {
-		return []slack.Block{}, nil
+		return []slack.Block{}, nil, nil
 	}
 
 	// ModeMarkdownBlock skips the AST walk entirely — we hand the raw
 	// (sanitized) input to Slack's markdown block parser.
 	if r.opts.Mode == ModeMarkdownBlock {
-		return r.emitMarkdownBlock(input)
+		blocks, err := r.emitMarkdownBlock(input)
+		return blocks, nil, err
 	}
 
 	src := []byte(input)
 	root := r.gm.Parser().Parse(text.NewReader(src))
 	if root == nil {
-		return nil, fmt.Errorf("converter: goldmark returned nil AST for input of %d bytes", len(input))
+		return nil, nil, fmt.Errorf("converter: goldmark returned nil AST for input of %d bytes", len(input))
 	}
 
-	if r.opts.Mode == ModeAuto && r.shouldUseMarkdownBlock(input, root) {
-		return r.emitMarkdownBlock(input)
+	var warnings []string
+	if r.opts.Mode == ModeAuto {
+		if r.shouldUseMarkdownBlock(input, root) {
+			blocks, err := r.emitMarkdownBlock(input)
+			return blocks, nil, err
+		}
+		// Picker said no. If the reason was a nested-block pattern (the
+		// new gating layer), emit one warning naming the patterns so the
+		// caller knows visual fidelity dropped relative to a markdown_block
+		// rendering. Other reasons (image, large table, oversized input)
+		// don't warn — those are documented decomposition paths.
+		if patterns := containsBlockInBlock(root); len(patterns) > 0 {
+			warnings = append(warnings, formatNestedPatternWarning(patterns))
+		}
 	}
 
 	w := &walker{
@@ -110,7 +136,19 @@ func (r *Renderer) Convert(input string) ([]slack.Block, error) {
 		blocks: make([]slack.Block, 0, 4),
 	}
 	if err := w.walkDocument(root); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return w.blocks, nil
+	return w.blocks, warnings, nil
+}
+
+// formatNestedPatternWarning produces a single, deterministic warning
+// string naming each detected non-representable-in-rich_text nesting
+// pattern. Stable text so test fixtures can match exactly.
+func formatNestedPatternWarning(patterns []string) string {
+	return "auto mode routed to rich_text decomposition because input contains " +
+		strings.Join(patterns, ", ") +
+		"; the rich_text schema can't embed those constructs, so the " +
+		"output uses adjacent top-level blocks (visual rendering may " +
+		"differ from CommonMark embedded form). Use mode=markdown_block " +
+		"to delegate rendering to Slack's parser instead."
 }

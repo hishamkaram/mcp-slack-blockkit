@@ -8,17 +8,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- _your change here_
+- `Renderer.ConvertWithWarnings(input) ([]slack.Block, []string, error)` —
+  the full converter API, returning fallback warnings alongside blocks.
+  `Renderer.Convert(input)` is now a thin wrapper that drops warnings,
+  preserving the v0.1 signature.
+- `MCP convert_markdown_to_blockkit` tool: response `warnings` field now
+  surfaces converter-side fallback notes (auto-mode routing decisions etc.),
+  not just chunker/preview notes.
+- New nested-pattern detection in the auto-mode picker
+  (`shouldUseMarkdownBlock`): code-in-blockquote, code-in-list,
+  table-in-blockquote, table-in-list, list-in-blockquote. When detected,
+  auto mode routes the input through rich_text decomposition (predictable
+  visual outcome) rather than the `markdown` block path (Slack's rendering
+  of these combinations is undocumented and unverified).
+- `internal/converter/nested_test.go`: 6 patterns × 3 modes test matrix +
+  cross-cutting ordered-list `Offset`-continuation test +
+  `TestNested_PrintBuilderURLs` fixture that prints Block Kit Builder
+  URLs for manual visual verification of each pattern × mode combination.
 
 ### Changed
-
-### Deprecated
-
-### Removed
+- `internal/converter/blocks.go::handleBlockquote`: refactored from
+  "single rich_text_quote with plain-text fallback for non-representable
+  children" to "split-emit on encountering a code block, list, or table —
+  the quote becomes a sequence of adjacent rich_text blocks with the
+  inner block emitted between."
+- `internal/converter/lists.go::handleList`: same refactor for list
+  items containing code blocks or tables. Ordered lists set `Offset` on
+  the post-split sibling list so numbering continues
+  (`Offset = N → first number = N+1`).
 
 ### Fixed
-
-### Security
+- Code blocks, lists, and tables nested inside blockquotes are no longer
+  silently flattened to plain text in `rich_text` mode. They emit as
+  proper standalone blocks adjacent to the quote.
+- Code blocks and tables nested inside list items are no longer silently
+  flattened to plain text. They emit as proper standalone blocks; the
+  list splits with continued numbering for ordered lists.
 
 ---
 

@@ -146,53 +146,104 @@ func (w *walker) handleThematicBreak(_ *ast.ThematicBreak) error {
 	return nil
 }
 
-// handleBlockquote emits a rich_text block containing one rich_text_quote
-// element. Slack does not support nested quotes, so any nested blockquote
-// children are flattened into the parent. Inline formatting inside the
-// quote IS preserved — we walk each child paragraph with the inline
-// renderer and concatenate the resulting elements.
+// handleBlockquote emits one or more top-level blocks representing the
+// markdown blockquote. The simple case (only paragraphs and nested quotes
+// containing only paragraphs) produces a single rich_text block with one
+// rich_text_quote element — same as before. The complex case (a child or
+// transitive child is a code block, list, or table) is split into adjacent
+// top-level blocks: rich_text(quote_prefix), inner_block, rich_text(quote_suffix),
+// and so on. Slack's rich_text_quote schema only accepts inline elements
+// as direct children, so this is the only way to preserve the inner block's
+// formatting.
+//
+// Nested blockquotes are flattened into the containing quote element when
+// they are inline-only (Slack has no nested rich_text_quote). When a nested
+// blockquote contains a non-representable child, it is dispatched as its
+// own handleBlockquote call (which itself may split), with the parent's
+// pending buffer flushed first to preserve document order.
 func (w *walker) handleBlockquote(bq *ast.Blockquote) error {
-	var elements []slack.RichTextSectionElement
-	collectQuoteInlines(bq, w.source, w.opts, &elements)
-	if len(elements) == 0 {
-		return nil
+	var pending []slack.RichTextSectionElement
+
+	flush := func() {
+		if len(pending) == 0 {
+			return
+		}
+		quote := &slack.RichTextQuote{Type: slack.RTEQuote, Elements: pending}
+		rt := slack.NewRichTextBlock(w.nextBlockID(), quote)
+		w.blocks = append(w.blocks, rt)
+		pending = nil
 	}
-	quote := &slack.RichTextQuote{
-		Type:     slack.RTEQuote,
-		Elements: elements,
+
+	appendParagraph := func(p *ast.Paragraph) {
+		els := renderInlinesWithOpts(p, w.source, w.opts)
+		if len(pending) > 0 && len(els) > 0 {
+			pending = append(pending, slack.NewRichTextSectionTextElement(" ", nil))
+		}
+		pending = append(pending, els...)
 	}
-	rt := slack.NewRichTextBlock(w.nextBlockID(), quote)
-	w.blocks = append(w.blocks, rt)
+
+	for c := bq.FirstChild(); c != nil; c = c.NextSibling() {
+		switch n := c.(type) {
+		case *ast.Paragraph:
+			appendParagraph(n)
+		case *ast.Blockquote:
+			// If the nested quote subtree contains any non-representable
+			// child (code/list/table), it can't be flattened safely — recurse
+			// so the nested handleBlockquote call performs its own splits.
+			// Flush the parent's pending first to preserve document order.
+			if len(containsBlockInBlock(n)) > 0 {
+				flush()
+				if err := w.handleBlockquote(n); err != nil {
+					return err
+				}
+				continue
+			}
+			collectInlineOnlyQuote(n, w.source, w.opts, &pending)
+		case *ast.FencedCodeBlock, *ast.CodeBlock, *ast.List, *extast.Table:
+			// Non-representable in rich_text_quote.elements — split.
+			flush()
+			if err := w.dispatchBlock(n); err != nil {
+				return err
+			}
+		default:
+			// Unknown block kind in a quote: keep its content as plain text
+			// in the current buffer so nothing is silently dropped.
+			text := extractPlainText(c, w.source)
+			if text == "" {
+				continue
+			}
+			if len(pending) > 0 {
+				pending = append(pending, slack.NewRichTextSectionTextElement(" ", nil))
+			}
+			pending = append(pending, slack.NewRichTextSectionTextElement(text, nil))
+		}
+	}
+	flush()
 	return nil
 }
 
-// collectQuoteInlines walks a blockquote's children and accumulates inline
-// elements from every paragraph (and from nested blockquotes — flattened).
-// A space is inserted between consecutive paragraphs/quotes so words don't
-// collide on the boundary.
-func collectQuoteInlines(node ast.Node, source []byte, opts Options, out *[]slack.RichTextSectionElement) {
-	for c := node.FirstChild(); c != nil; c = c.NextSibling() {
-		switch t := c.(type) {
+// collectInlineOnlyQuote gathers inline content from an inline-only
+// blockquote subtree (a quote whose subtree contains no FencedCodeBlock /
+// CodeBlock / List / Table) and appends to *out. Used by handleBlockquote
+// to flatten a nested blockquote into the parent's buffer when it's safe.
+//
+// The caller MUST verify the subtree is inline-only via containsBlockInBlock
+// before calling — this helper does not check, and producing a flat result
+// from a quote that contains a code block would silently drop the code's
+// formatting (the old behavior we are explicitly fixing).
+func collectInlineOnlyQuote(bq *ast.Blockquote, source []byte, opts Options, out *[]slack.RichTextSectionElement) {
+	for c := bq.FirstChild(); c != nil; c = c.NextSibling() {
+		switch n := c.(type) {
 		case *ast.Paragraph:
-			els := renderInlinesWithOpts(t, source, opts)
+			els := renderInlinesWithOpts(n, source, opts)
 			if len(*out) > 0 && len(els) > 0 {
 				*out = append(*out, slack.NewRichTextSectionTextElement(" ", nil))
 			}
 			*out = append(*out, els...)
 		case *ast.Blockquote:
-			// Flatten nested blockquotes into the parent quote element.
-			collectQuoteInlines(t, source, opts, out)
-		default:
-			// Lists or code blocks inside a quote: render their plain text
-			// to keep content; richer handling can be added later if needed.
-			text := extractPlainText(t, source)
-			if text == "" {
-				continue
-			}
-			if len(*out) > 0 {
-				*out = append(*out, slack.NewRichTextSectionTextElement(" ", nil))
-			}
-			*out = append(*out, slack.NewRichTextSectionTextElement(text, nil))
+			// Recurse — nested-nested blockquotes still flatten into the
+			// outermost quote element.
+			collectInlineOnlyQuote(n, source, opts, out)
 		}
 	}
 }
