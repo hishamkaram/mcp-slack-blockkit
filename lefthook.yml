@@ -6,7 +6,10 @@
 #
 # Docs: https://lefthook.dev/configuration/
 
-min_version: 2.1.6
+# Pinned to lefthook v1 because v2 currently requires Go 1.26 to build via
+# `go install`, and this project targets Go 1.25. v1 has the same hook
+# semantics — switch the bound to 2.x once the toolchain bumps.
+min_version: 1.11.0
 assert_lefthook_installed: true   # fail loudly if .git/hooks aren't wired
 no_auto_install: false            # auto-wire on any lefthook invocation
 
@@ -35,11 +38,17 @@ pre-commit:
     lint:
       tags: [lint]
       glob: "*.go"
-      # --new-from-rev keeps the commit fast: only newly-introduced issues fail.
-      # Drop the flag locally with `golangci-lint run` to scan the whole tree.
-      run: golangci-lint run --new-from-rev=HEAD~1 --fix {staged_files}
-      stage_fixed: true
-      fail_text: "golangci-lint failed. Run: golangci-lint run ./..."
+      # Whole-tree lint. Passing {staged_files} to golangci-lint breaks
+      # typechecking when staged files span multiple Go packages — the
+      # linter needs each package in one invocation. Whole-tree is fast
+      # enough on this project (~3s) and matches the CI behavior, so
+      # contributors don't see green locally then fail in CI.
+      #
+      # Project-scoped GOCACHE / GOLANGCI_LINT_CACHE so multiple
+      # checkouts of the same repo don't fight each other's caches and
+      # so a stale system-wide cache can't make this hook lie.
+      run: env GOCACHE=/tmp/mcp-slack-blockkit-gocache GOLANGCI_LINT_CACHE=/tmp/mcp-slack-blockkit-golangci-cache golangci-lint run --timeout=5m ./...
+      fail_text: "golangci-lint failed. Run: golangci-lint run ./... to see issues."
 
     vet:
       tags: [lint]

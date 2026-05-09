@@ -129,17 +129,17 @@ func (w *walker) renderListItemSection(li *ast.ListItem) *slack.RichTextSection 
 
 // findTaskCheckBox returns the TaskCheckBox node attached to the first
 // paragraph (or text-block) child of li, if any. extension.TaskList places
-// it as the first inline child of the item's first block child.
+// it as the first inline child of the item's first block child — so we
+// only need to inspect each block child's FirstChild, not iterate inline
+// siblings.
 func findTaskCheckBox(li *ast.ListItem) (*extast.TaskCheckBox, bool) {
 	for c := li.FirstChild(); c != nil; c = c.NextSibling() {
-		// Inspect the first inline child of each block-level child of the item.
-		for inner := c.FirstChild(); inner != nil; inner = inner.NextSibling() {
-			if cb, ok := inner.(*extast.TaskCheckBox); ok {
-				return cb, true
-			}
-			// TaskCheckBox is always the first inline child if present;
-			// don't keep scanning past it within a paragraph.
-			break
+		first := c.FirstChild()
+		if first == nil {
+			continue
+		}
+		if cb, ok := first.(*extast.TaskCheckBox); ok {
+			return cb, true
 		}
 	}
 	return nil, false

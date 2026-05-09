@@ -17,13 +17,14 @@ import (
 // `***bold-italic***` (markdown's `**` then `*` nesting) resolves to
 // `{bold: true, italic: true}` correctly, regardless of which order the
 // markdown chose to nest them.
-func renderInlines(node ast.Node, source []byte) []slack.RichTextSectionElement {
-	return renderInlinesWithOpts(node, source, Options{})
-}
-
-// renderInlinesWithOpts is the full-pipeline variant used by handlers that
-// have access to the renderer Options. The mention/emoji/sanitize pipeline
-// fires in this exact order:
+//
+// renderInlinesWithOpts is the only public-ish entry. There's no
+// no-options variant because every caller in this package has access
+// to a walker and its Options; threading them through avoids reaching
+// into a global default that could drift from the renderer's actual
+// configuration.
+//
+// The mention/emoji/sanitize pipeline fires in this exact order:
 //
 //  1. visit() builds raw RichTextSectionElement values from the AST.
 //  2. applyMentionMap replaces `@handle` substrings with typed user/
@@ -33,6 +34,8 @@ func renderInlines(node ast.Node, source []byte) []slack.RichTextSectionElement 
 //  3. resolveEmoji merges fragmented text and extracts `:name:` shortcodes.
 //  4. sanitizeBroadcasts entity-escapes any remaining &/</> in text
 //     elements (skipped when Options.AllowBroadcasts is true).
+//
+//nolint:revive // exported-only-for-package-internal usage; tests may import in a future split.
 func renderInlinesWithOpts(node ast.Node, source []byte, opts Options) []slack.RichTextSectionElement {
 	rc := &inlineCtx{source: source}
 	for c := node.FirstChild(); c != nil; c = c.NextSibling() {
@@ -104,7 +107,8 @@ func (c *inlineCtx) flushPending() {
 	if c.pending.Len() == 0 {
 		return
 	}
-	c.out = append(c.out,
+	c.out = append(
+		c.out,
 		slack.NewRichTextSectionTextElement(c.pending.String(), c.currentStyle()),
 	)
 	c.pending.Reset()

@@ -49,7 +49,8 @@ type Finding struct {
 }
 
 func (s *Server) registerLintTool() {
-	mcp.AddTool(s.mcp,
+	mcp.AddTool(
+		s.mcp,
 		&mcp.Tool{
 			Name: "lint_blockkit",
 			Description: "Lint a Slack Block Kit payload for near-limit content, " +

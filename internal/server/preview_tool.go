@@ -25,7 +25,8 @@ type PreviewOutput struct {
 }
 
 func (s *Server) registerPreviewTool() {
-	mcp.AddTool(s.mcp,
+	mcp.AddTool(
+		s.mcp,
 		&mcp.Tool{
 			Name: "preview_blockkit",
 			Description: "Generate a Block Kit Builder URL for the given blocks. The " +

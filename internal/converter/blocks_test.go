@@ -43,12 +43,11 @@ func renderForTest(t *testing.T, opts Options, input string) ([]slack.Block, str
 	if opts.MentionMap != nil {
 		merged.MentionMap = opts.MentionMap
 	}
-	// EnableTables: caller's value wins only when explicitly false; default true.
-	if !opts.EnableTables {
-		// We can't tell a zero-value bool from an explicit-false in Go; use
-		// the convention that callers wanting tables disabled must say so.
-		// For now, callers tweaking EnableTables=false call New() directly.
-	}
+	// EnableTables intentionally NOT merged from opts: Go can't tell a
+	// zero-value bool from an explicit-false on a non-pointer field, so
+	// callers wanting tables disabled must build the Renderer with
+	// New() directly. This helper keeps the default (true) from
+	// DefaultOptions().
 
 	r, err := New(merged)
 	if err != nil {

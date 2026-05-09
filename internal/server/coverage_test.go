@@ -209,8 +209,8 @@ func TestPercentOf_TableCases(t *testing.T) {
 		{0, 100, 0},
 		{50, 100, 50},
 		{100, 100, 100},
-		{1, 0, 0},   // limit=0 should not panic
-		{1, -1, 0},  // negative limit safe
+		{1, 0, 0},  // limit=0 should not panic
+		{1, -1, 0}, // negative limit safe
 		{200, 100, 200},
 	}
 	for _, tc := range cases {

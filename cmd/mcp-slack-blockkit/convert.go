@@ -27,12 +27,12 @@ import (
 //	cat doc.md | mcp-slack-blockkit convert --preview > payload.json
 func newConvertCmd(stderr io.Writer, stdout io.Writer, stdin io.Reader) *cobra.Command {
 	var (
-		mode             string
-		previewFlag      bool
-		allowBroadcasts  bool
-		blockIDPrefix    string
-		maxInputBytes    int
-		pretty           bool
+		mode            string
+		previewFlag     bool
+		allowBroadcasts bool
+		blockIDPrefix   string
+		maxInputBytes   int
+		pretty          bool
 	)
 
 	cmd := &cobra.Command{
@@ -96,9 +96,16 @@ func newConvertCmd(stderr io.Writer, stdout io.Writer, stdin io.Reader) *cobra.C
 			if previewFlag {
 				pr, err := preview.BuilderURL(blocks)
 				if err == nil {
-					fmt.Fprintf(stderr, "preview: %s\n", pr.URL)
+					// stderr writes can fail if the descriptor is closed
+					// (rare); surface as a non-fatal log via slog so we
+					// don't swallow the error silently.
+					if _, werr := fmt.Fprintf(stderr, "preview: %s\n", pr.URL); werr != nil {
+						return fmt.Errorf("write preview to stderr: %w", werr)
+					}
 					if pr.Truncated {
-						fmt.Fprintf(stderr, "note: preview URL is %d bytes; may be unreliable above ~8KB\n", pr.ByteSize)
+						if _, werr := fmt.Fprintf(stderr, "note: preview URL is %d bytes; may be unreliable above ~8KB\n", pr.ByteSize); werr != nil {
+							return fmt.Errorf("write preview note to stderr: %w", werr)
+						}
 					}
 				}
 			}

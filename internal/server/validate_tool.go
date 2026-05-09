@@ -31,7 +31,8 @@ type ValidateOutput struct {
 }
 
 func (s *Server) registerValidateTool() {
-	mcp.AddTool(s.mcp,
+	mcp.AddTool(
+		s.mcp,
 		&mcp.Tool{
 			Name: "validate_blockkit",
 			Description: "Validate a Slack Block Kit payload against the documented " +

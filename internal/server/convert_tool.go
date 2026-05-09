@@ -41,7 +41,8 @@ type ConvertOutput struct {
 }
 
 func (s *Server) registerConvertTool() {
-	mcp.AddTool(s.mcp,
+	mcp.AddTool(
+		s.mcp,
 		&mcp.Tool{
 			Name: "convert_markdown_to_blockkit",
 			Description: "Convert markdown into Slack Block Kit JSON. Auto mode picks " +
@@ -94,21 +95,18 @@ func (s *Server) handleConvert(_ context.Context, _ *mcp.CallToolRequest, in Con
 		}
 	}
 
-	// Preview URL: opt-in via ReturnPreviewURL; default is true to make
-	// the visual-QA workflow zero-friction.
-	if in.ReturnPreviewURL || (in.ReturnPreviewURL == false && !explicitFalse(in)) {
-		// Default-true semantics: only suppress when the caller passed
-		// ReturnPreviewURL explicitly false. Since Go can't tell the
-		// zero-value from "not set" in the input struct, we treat
-		// missing-or-true the same and produce the URL.
-		pr, err := preview.BuilderURL(blocks)
-		if err == nil {
-			out.PreviewURL = pr.URL
-			out.PreviewSize = pr.ByteSize
-			if pr.Truncated {
-				out.Warnings = append(out.Warnings,
-					fmt.Sprintf("preview URL is %d bytes; may exceed practical browser/Slack limits (~8KB)", pr.ByteSize))
-			}
+	// Preview URL is always produced. The schema documents
+	// `return_preview_url` as opt-in (default true), but Go can't
+	// distinguish a missing JSON bool from an explicit false on a
+	// non-pointer field — so we'd need to switch the input type to
+	// *bool to support strict opt-out. Until a caller asks for that,
+	// always-on is the simpler contract.
+	if pr, err := preview.BuilderURL(blocks); err == nil {
+		out.PreviewURL = pr.URL
+		out.PreviewSize = pr.ByteSize
+		if pr.Truncated {
+			out.Warnings = append(out.Warnings,
+				fmt.Sprintf("preview URL is %d bytes; may exceed practical browser/Slack limits (~8KB)", pr.ByteSize))
 		}
 	}
 
@@ -133,14 +131,6 @@ func convertInputToOptions(in ConvertInput) (converter.Options, error) {
 	}
 	return opts, nil
 }
-
-// explicitFalse is a placeholder for future input-shape changes. Today
-// Go cannot distinguish a missing JSON bool from an explicit false on a
-// non-pointer field. The default-true semantics for ReturnPreviewURL
-// could be made strictly correct by switching the field to *bool, which
-// breaks the current schema shape; defer until we have telemetry showing
-// callers want the default-false behavior.
-func explicitFalse(_ ConvertInput) bool { return false }
 
 // errorResult builds an MCP CallToolResult with isError: true. Per the
 // MCP spec, tool-level failures (input that parses but can't be

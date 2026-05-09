@@ -91,7 +91,7 @@ func TestSplitText_PrefersWhitespaceBoundary(t *testing.T) {
 
 func TestSplitText_NeverSplitsMidWord_WhenWhitespaceAvailable(t *testing.T) {
 	// A long input with consistent whitespace at predictable intervals.
-	const wordLen = 9 // "abcdefghi"
+	// 9-char words ("abcdefghi") repeated 200 times, separated by single spaces.
 	const repeats = 200
 	parts := make([]string, repeats)
 	for i := range parts {

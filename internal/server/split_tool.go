@@ -25,7 +25,8 @@ type SplitOutput struct {
 }
 
 func (s *Server) registerSplitTool() {
-	mcp.AddTool(s.mcp,
+	mcp.AddTool(
+		s.mcp,
 		&mcp.Tool{
 			Name: "split_blocks",
 			Description: "Split a Block Kit payload into one or more Slack-API-" +

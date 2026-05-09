@@ -346,7 +346,7 @@ func walk(node ast.Node, visit func(ast.Node) (stop bool)) {
 }
 
 // escapeMrkdwnEmphasis defangs the four mrkdwn emphasis markers (`*`, `_`,
-// `~`, `` ` ``) so user text inside our bold-wrapped headings doesn't
+// `~`, “ ` “) so user text inside our bold-wrapped headings doesn't
 // accidentally start a new style run. The proper full mrkdwn escape (which
 // also handles `<`, `>`, `&` for mention safety) is layered on top in step
 // 11; this function is intentionally narrower so heading fallback works

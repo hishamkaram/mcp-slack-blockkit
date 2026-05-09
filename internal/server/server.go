@@ -72,7 +72,8 @@ func (s *Server) MCP() *mcp.Server {
 // default operation mode — Claude Desktop / Cursor / Continue.dev all
 // launch the binary and speak JSON-RPC over stdio.
 func (s *Server) RunStdio(ctx context.Context) error {
-	slog.InfoContext(ctx, "starting mcp server",
+	slog.InfoContext(
+		ctx, "starting mcp server",
 		"transport", "stdio",
 		"version", s.version,
 	)

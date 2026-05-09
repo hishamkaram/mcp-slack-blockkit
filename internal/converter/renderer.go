@@ -34,7 +34,8 @@ func New(opts Options) (*Renderer, error) {
 	} else {
 		// Without GFM, still pick up strike/linkify/task lists so we don't
 		// silently drop them when the caller only wants tables disabled.
-		extensions = append(extensions,
+		extensions = append(
+			extensions,
 			extension.Strikethrough,
 			extension.Linkify,
 			extension.TaskList,

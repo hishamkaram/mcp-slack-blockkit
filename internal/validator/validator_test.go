@@ -90,7 +90,8 @@ func TestValidate_SectionEmpty_Error(t *testing.T) {
 func TestValidate_SectionTextOver3000_Error(t *testing.T) {
 	long := strings.Repeat("x", MaxSectionTextChars+1)
 	s := slack.NewSectionBlock(
-		slack.NewTextBlockObject(slack.MarkdownType, long, false, false), nil, nil)
+		slack.NewTextBlockObject(slack.MarkdownType, long, false, false), nil, nil,
+	)
 	r := New().Validate([]slack.Block{s})
 	if !hasErrorWithCode(r, "section_text_too_long") {
 		t.Errorf("missing section_text_too_long error; errors=%+v", r.Errors)
@@ -100,7 +101,8 @@ func TestValidate_SectionTextOver3000_Error(t *testing.T) {
 func TestValidate_SectionAtExactLimit_Valid(t *testing.T) {
 	at := strings.Repeat("y", MaxSectionTextChars)
 	s := slack.NewSectionBlock(
-		slack.NewTextBlockObject(slack.MarkdownType, at, false, false), nil, nil)
+		slack.NewTextBlockObject(slack.MarkdownType, at, false, false), nil, nil,
+	)
 	r := New().Validate([]slack.Block{s})
 	if !r.Valid {
 		t.Errorf("3000-char section text should validate; errors=%+v", r.Errors)
@@ -221,7 +223,8 @@ func TestValidate_BlockIDTooLong_Error(t *testing.T) {
 
 func TestValidate_Strict_RejectsMrkdwnSection(t *testing.T) {
 	s := slack.NewSectionBlock(
-		slack.NewTextBlockObject(slack.MarkdownType, "hi", false, false), nil, nil)
+		slack.NewTextBlockObject(slack.MarkdownType, "hi", false, false), nil, nil,
+	)
 	r := NewStrict().Validate([]slack.Block{s})
 	if !hasErrorWithCode(r, "deprecated_mrkdwn_section") {
 		t.Errorf("strict mode should flag mrkdwn section as deprecated; errors=%+v", r.Errors)
@@ -230,7 +233,8 @@ func TestValidate_Strict_RejectsMrkdwnSection(t *testing.T) {
 
 func TestValidate_NonStrict_AllowsMrkdwnSection(t *testing.T) {
 	s := slack.NewSectionBlock(
-		slack.NewTextBlockObject(slack.MarkdownType, "hi", false, false), nil, nil)
+		slack.NewTextBlockObject(slack.MarkdownType, "hi", false, false), nil, nil,
+	)
 	r := New().Validate([]slack.Block{s})
 	if !r.Valid {
 		t.Errorf("non-strict should allow mrkdwn section; errors=%+v", r.Errors)
@@ -244,7 +248,8 @@ func TestValidate_SimpleValidPayload_Valid(t *testing.T) {
 		slack.NewHeaderBlock(slack.NewTextBlockObject(slack.PlainTextType, "Title", false, false)),
 		slack.NewSectionBlock(
 			slack.NewTextBlockObject(slack.MarkdownType, "body text", false, false),
-			nil, nil),
+			nil, nil,
+		),
 		slack.NewDividerBlock(),
 	}
 	r := New().Validate(blocks)
