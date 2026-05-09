@@ -117,21 +117,74 @@ release:
   prerelease: auto
   mode: replace
   header: |
-    ## mcp-slack-block-kit {{ .Version }}
+    ## mcp-slack-block-kit {{ .Tag }}
 
-    Single-binary MCP server that converts AI-generated markdown into Slack
-    Block Kit JSON. Five tools: `convert_markdown_to_block_kit`,
-    `validate_block_kit`, `preview_block_kit`, `lint_block_kit`, `split_blocks`.
+    A single static binary that exposes a [Model Context Protocol][mcp]
+    server and a CLI for turning AI-generated markdown into valid
+    [Slack Block Kit][bk] JSON. Credential-free, zero external runtime
+    dependencies, supply-chain hardened.
+
+    [mcp]: https://modelcontextprotocol.io/
+    [bk]: https://docs.slack.dev/block-kit/
+
+    ### Five MCP tools
+
+    - `convert_markdown_to_block_kit` — markdown → Block Kit, with
+      auto-mode picker between Slack's new (Feb 2025) `markdown` block
+      and full deterministic `rich_text` decomposition.
+    - `validate_block_kit` — full Slack constraint validation with
+      structured violations + fix hints.
+    - `preview_block_kit` — Block Kit Builder URL for one-click visual QA.
+    - `lint_block_kit` — near-limit and deprecated-pattern warnings.
+    - `split_blocks` — enforce the 50-block-per-message ceiling and
+      `only_one_table_allowed`.
+
+    Plus a `convert` CLI subcommand for offline testing without an MCP
+    client, and a public Go library at
+    `github.com/hishamkaram/mcp-slack-block-kit/block_kit` for embedded use.
+
+    ### Why this and not the alternatives
+
+    - **Mention-sanitization is mandatory by default.** Every text run
+      emitted into a Slack `text` field is HTML-entity-escaped, so
+      AI-generated `<!channel>`, `<@U…>`, `<#C…>`, `<!subteam^…>` cannot
+      broadcast or ping the workspace. Opt-in passthrough via
+      `Options.AllowBroadcasts: true`.
+    - **Predictable handling of nested elements.** Five non-representable
+      patterns (code-in-quote, code-in-list, table-in-quote,
+      table-in-list, list-in-quote) are detected and routed through
+      rich_text decomposition instead of betting on the markdown block's
+      undocumented combination behavior. Ordered lists set `Offset` for
+      numbering continuation across splits.
+    - **Bounded input.** `Options.MaxInputBytes` (default 256 KiB) keeps
+      goldmark from allocating gigabytes on hostile input.
+    - **Supply-chain hardened.** Cosign keyless signing of every
+      artifact via GitHub OIDC, CycloneDX SBOMs, all GitHub Actions
+      pinned to commit SHAs, [OSSF Scorecard][ossf] passing on
+      Pinned-Dependencies, Token-Permissions, SAST, Fuzzing,
+      Vulnerabilities, License, Binary-Artifacts, Dangerous-Workflow,
+      Packaging, Dependency-Update-Tool.
+
+    [ossf]: https://scorecard.dev/viewer/?uri=github.com/hishamkaram/mcp-slack-block-kit
 
     ### Install
 
+    Homebrew:
+
     ```sh
     brew install hishamkaram/tap/mcp-slack-block-kit
-    # or
+    ```
+
+    Go install:
+
+    ```sh
     go install github.com/hishamkaram/mcp-slack-block-kit/cmd/mcp-slack-block-kit@{{ .Tag }}
     ```
 
-    ### Verify (cosign)
+    Or grab a prebuilt binary from the assets below — multi-arch
+    (linux/darwin/windows × amd64/arm64), all signed.
+
+    ### Verify a release artifact (cosign keyless)
 
     ```sh
     cosign verify-blob \
@@ -139,6 +192,26 @@ release:
       --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
       --certificate checksums.txt.pem --signature checksums.txt.sig \
       checksums.txt
+    sha256sum -c checksums.txt --ignore-missing
     ```
+
+    ### Use it from Claude Desktop / Cursor / Cline / etc.
+
+    ```json
+    {
+      "mcpServers": {
+        "block_kit": {
+          "command": "mcp-slack-block-kit",
+          "args": []
+        }
+      }
+    }
+    ```
+
+    Full release notes and the upgrade story: see [CHANGELOG.md][cl].
+
+    [cl]: https://github.com/hishamkaram/mcp-slack-block-kit/blob/{{ .Tag }}/CHANGELOG.md
   footer: |
-    **Full changelog**: https://github.com/hishamkaram/mcp-slack-block-kit/compare/{{ .PreviousTag }}...{{ .Tag }}
+    ---
+
+    **Commits since last release**: see the auto-generated list below.
