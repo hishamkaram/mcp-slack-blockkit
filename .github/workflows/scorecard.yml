@@ -1,0 +1,47 @@
+name: OSSF Scorecard
+
+on:
+  branch_protection_rule:
+  schedule:
+    # Weekly: Saturday 01:30 UTC.
+    - cron: "30 1 * * 6"
+  push:
+    branches: [main]
+
+permissions: read-all
+
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # Required to upload SARIF results to the Security tab.
+      security-events: write
+      # Required for OIDC token used by publish_results.
+      id-token: write
+      # Optional read perms used by various Scorecard checks.
+      contents: read
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publishes results so the badge auto-generates and the score is
+          # discoverable at https://scorecard.dev/viewer/?uri=github.com/<owner>/<repo>
+          publish_results: true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SARIF
+          path: results.sarif
+          retention-days: 5
+
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif

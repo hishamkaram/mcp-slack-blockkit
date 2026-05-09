@@ -1,0 +1,100 @@
+# Git hooks for mcp-slack-blockkit. Runs the fast checks locally so CI
+# isn't the first thing that catches a typo.
+#
+# Install once after clone:  `make setup`  (or `lefthook install` directly).
+# Bypass in emergencies:      `LEFTHOOK=0 git commit -m "..."`  (or `--no-verify`).
+#
+# Docs: https://lefthook.dev/configuration/
+
+min_version: 2.1.6
+assert_lefthook_installed: true   # fail loudly if .git/hooks aren't wired
+no_auto_install: false            # auto-wire on any lefthook invocation
+
+# Quiet by default. To debug, run with `--verbose` or
+# `LEFTHOOK_OUTPUT=meta,summary,success,failure,execution,execution_out`.
+output:
+  - summary
+  - failure
+
+# ---------------------------------------------------------------------------
+# pre-commit: fast checks on staged content (target: under ~3s on a clean tree)
+# ---------------------------------------------------------------------------
+pre-commit:
+  parallel: true
+  skip: [merge, rebase]   # don't fight git during merges/rebases
+  commands:
+
+    fmt:
+      tags: [format]
+      glob: "*.go"
+      exclude: '(^|/)(vendor|.*\.pb\.go|.*_gen\.go)(/|$)'
+      run: gofumpt -w {staged_files}
+      stage_fixed: true
+      fail_text: "gofumpt rewrote files; review and recommit."
+
+    lint:
+      tags: [lint]
+      glob: "*.go"
+      # --new-from-rev keeps the commit fast: only newly-introduced issues fail.
+      # Drop the flag locally with `golangci-lint run` to scan the whole tree.
+      run: golangci-lint run --new-from-rev=HEAD~1 --fix {staged_files}
+      stage_fixed: true
+      fail_text: "golangci-lint failed. Run: golangci-lint run ./..."
+
+    vet:
+      tags: [lint]
+      glob: "*.go"
+      run: go vet ./...   # whole-tree vet is cheap
+
+    mod-tidy:
+      tags: [mod]
+      glob: "{go.mod,go.sum}"
+      # -diff exits non-zero if `go mod tidy` would change files,
+      # without modifying anything.
+      run: go mod tidy -diff
+      fail_text: "go.mod/go.sum not tidy. Run: go mod tidy"
+
+# ---------------------------------------------------------------------------
+# pre-push: medium checks before code leaves the local machine
+# ---------------------------------------------------------------------------
+pre-push:
+  parallel: true
+  commands:
+
+    test-race:
+      tags: [test]
+      run: go test -race -count=1 -timeout=120s ./...
+      fail_text: "Race tests failed."
+
+    govulncheck:
+      tags: [security]
+      # Standalone gosec is intentionally NOT run — golangci-lint v2
+      # already bundles gosec, and double-running just creates noise.
+      run: govulncheck ./...
+      fail_text: "Known vulnerabilities found. See https://pkg.go.dev/vuln/."
+
+    build-smoke:
+      tags: [build]
+      run: go build ./...
+
+    fuzz-smoke:
+      tags: [test, fuzz]
+      # 30-second fuzz smoke; the long fuzz time-budget lives in CI.
+      # `|| true` means the smoke is informational, not gating.
+      run: go test -run=^$ -fuzz=. -fuzztime=30s ./internal/splitter/ || true
+
+# ---------------------------------------------------------------------------
+# commit-msg: Conventional Commits enforcement (no commitlint dep)
+# ---------------------------------------------------------------------------
+commit-msg:
+  commands:
+    conventional:
+      tags: [commit-msg]
+      # {1} is the path to the commit-msg file Lefthook passes in.
+      run: |
+        grep -Eq '^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9._/-]+\))?(!)?: .{1,100}$' {1} \
+          || (echo "ERROR: commit message must follow Conventional Commits 1.0."; \
+              echo "  format:  <type>(<scope>)?: <subject>"; \
+              echo "  types:   build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test"; \
+              echo "  example: feat(converter): add task-list checkbox support"; \
+              exit 1)

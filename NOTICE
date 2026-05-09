@@ -1,0 +1,43 @@
+mcp-slack-blockkit
+Copyright (c) 2026 Hesham Waleed Karam
+
+Licensed under the MIT License (see LICENSE).
+
+This product bundles or depends on third-party software with the
+following copyright and license notices preserved as required.
+
+----------------------------------------------------------------------
+slack-go/slack
+  https://github.com/slack-go/slack
+  License: BSD 2-Clause
+  Copyright (c) 2015-2026 The slack-go Authors
+
+  Used as the typed Block Kit struct backbone for marshaling/
+  unmarshaling Slack message payloads. Source unmodified.
+----------------------------------------------------------------------
+yuin/goldmark
+  https://github.com/yuin/goldmark
+  License: MIT
+  Copyright (c) 2019-2026 Yusuke Inuzuka
+
+  Used as the CommonMark+GFM parser feeding the converter. Source
+  unmodified.
+----------------------------------------------------------------------
+modelcontextprotocol/go-sdk
+  https://github.com/modelcontextprotocol/go-sdk
+  License: MIT
+  Copyright (c) 2025-2026 Anthropic, PBC and contributors
+
+  Used as the official Go SDK for the Model Context Protocol. Source
+  unmodified.
+----------------------------------------------------------------------
+spf13/cobra
+  https://github.com/spf13/cobra
+  License: Apache-2.0
+  Copyright (c) 2013-2026 Steve Francia
+
+  Used as the CLI command framework. Source unmodified.
+----------------------------------------------------------------------
+
+Full upstream license texts are available at the URLs above and bundled
+in the dependency caches under each module's directory.

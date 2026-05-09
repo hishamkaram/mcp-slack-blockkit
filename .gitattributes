@@ -1,0 +1,19 @@
+# Normalize line endings; Go expects LF.
+* text=auto eol=lf
+
+# Go-specific diff/merge driver for nicer godiff hunks.
+*.go diff=golang
+
+# Keep generated files out of language stats and diffs.
+go.sum -diff
+go.sum linguist-generated=true
+
+# Mark binaries
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+
+# Markdown wrapping/diff hint
+*.md diff

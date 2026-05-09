@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest a new capability, MCP tool, or improvement.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing an improvement. The more concrete the
+        problem and the use case, the easier the design discussion.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: The user-facing pain, not the suggested solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you address it? API sketch, MCP tool input/output, CLI flag, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you weighed and why this one is preferable.
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I'd be willing to send a PR for this if accepted.
+        - label: I've checked existing issues and PRs for duplicates.

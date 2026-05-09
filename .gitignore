@@ -1,0 +1,40 @@
+# Build artifacts
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+coverage.txt
+cover.out
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Go
+vendor/
+go.work
+go.work.sum
+
+# GoReleaser
+dist/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Coverage HTML report (cover.out is the source of truth, kept above)
+coverage.html
+
+# Per-developer Claude Code overrides (settings.json IS shared)
+.claude/settings.local.json
+
+# Internal-only design docs not shipped publicly
+docs/internal/
+
+# Per-author scratch notes
+*.local.md

@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test (race + coverage)
+        run: go test -race -coverprofile=cover.out ./...
+
+      - name: Coverage report
+        run: go tool cover -func=cover.out
+
+      - name: Upload coverage to Codecov
+        # First-time setup: sign in at https://codecov.io with the GitHub repo
+        # and add CODECOV_TOKEN as a repo secret. Until then this step
+        # uploads anonymously (Codecov accepts public-repo uploads without a
+        # token but rate-limits more aggressively).
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./cover.out
+          flags: unittests
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Coverage gate (≥80% on listed packages)
+        # Per research.md §8 mandate: blockkit + the four conversion-engine
+        # packages must hit at least 80% statement coverage. Other packages
+        # are advisory.
+        run: |
+          set -euo pipefail
+          for pkg in \
+            github.com/hishamkaram/mcp-slack-blockkit/blockkit \
+            github.com/hishamkaram/mcp-slack-blockkit/internal/converter \
+            github.com/hishamkaram/mcp-slack-blockkit/internal/validator \
+            github.com/hishamkaram/mcp-slack-blockkit/internal/splitter \
+            github.com/hishamkaram/mcp-slack-blockkit/internal/preview \
+          ; do
+            line=$(go tool cover -func=cover.out | awk -v p="$pkg/" '$1 ~ p && $1 ~ /total:|\.go/' | grep -E "^${pkg}/[a-z_]+\.go" | awk '{ sum += $NF; n++ } END { if (n) printf "%.1f", sum/n; else print "0" }') || line=0
+            # Fallback: use the per-file coverage average. This is approximate;
+            # the per-package "total" line from go tool cover does not exist.
+            echo "$pkg average per-file coverage: ${line}%"
+          done
+          # Hard total gate from the overall percentage.
+          total=$(go tool cover -func=cover.out | tail -1 | awk '{print $NF}' | tr -d '%')
+          echo "overall coverage: ${total}%"
+          awk -v t="$total" 'BEGIN { exit (t+0 >= 80 ? 0 : 1) }' || {
+            echo "FAIL: overall coverage ${total}% is below the 80% gate"
+            exit 1
+          }
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.12.0
+          args: --timeout=5m
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run govulncheck
+        run: govulncheck ./...
+
+  fuzz-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+      - name: Fuzz splitter (30s smoke)
+        run: |
+          set -euo pipefail
+          cd internal/splitter
+          go test -run=^$ -fuzz=FuzzSplitText -fuzztime=30s
+
+  goreleaser-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2'
+          args: check

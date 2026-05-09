@@ -1,0 +1,57 @@
+# Dependabot config — weekly updates with grouping to avoid PR floods.
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+
+updates:
+  # Go module dependencies
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - go
+    assignees:
+      - hishamkaram
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    groups:
+      # Bundle minor + patch bumps so review stays manageable.
+      go-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+      # All security updates land in one PR for prompt review.
+      go-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # GitHub Actions used in workflows under .github/workflows/
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+    assignees:
+      - hishamkaram
+    commit-message:
+      prefix: "chore(ci)"
+      include: scope
+    groups:
+      actions-all:
+        applies-to: version-updates
+        patterns:
+          - "*"
