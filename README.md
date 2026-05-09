@@ -92,6 +92,10 @@ cosign verify-blob \
   checksums.txt
 ```
 
+Release tags are SSH-signed (ed25519); GitHub displays a green
+"Verified" badge on each tag page (e.g.
+[v0.1.0](https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.1.0)).
+
 ## Use it from Claude Desktop
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -200,9 +204,3 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 [MIT](LICENSE) © 2026 Hesham Waleed Karam.
 [Third-party notices](NOTICE).
-
----
-
-> **Note**: some badges may take 24–48 hours to populate after the
-> first release (OSSF Scorecard, Go Report Card crawl on their own
-> schedules; CI/CodeQL update on the next push).
