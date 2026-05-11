@@ -6,7 +6,7 @@ toolchain go1.25.10
 
 require (
 	github.com/modelcontextprotocol/go-sdk v1.6.0
-	github.com/slack-go/slack v0.23.0
+	github.com/slack-go/slack v0.23.1
 	github.com/spf13/cobra v1.10.2
 	github.com/yuin/goldmark v1.8.2
 )
