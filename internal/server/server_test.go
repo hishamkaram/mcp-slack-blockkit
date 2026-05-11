@@ -203,6 +203,43 @@ func TestConvertTool_AllowBroadcastsFalse_EscapesChannelMention(t *testing.T) {
 	}
 }
 
+func TestConvertTool_PreserveMentionTokens_PassesUserButEscapesBroadcast(t *testing.T) {
+	session, cleanup := newTestServer(t)
+	defer cleanup()
+
+	r := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
+		Markdown:              "Ping <@U012AB3CD> in <#C123ABC456>, then <!channel>",
+		Mode:                  "rich_text",
+		PreserveMentionTokens: true,
+	})
+
+	var out ConvertOutput
+	extractStructured(t, r, &out)
+	body := blocksJSON(t, out)
+
+	// Typed user + channel must appear in the wire output.
+	if !strings.Contains(body, `"user_id":"U012AB3CD"`) {
+		t.Errorf("expected typed user element with U012AB3CD: %s", body)
+	}
+	if !strings.Contains(body, `"channel_id":"C123ABC456"`) {
+		t.Errorf("expected typed channel element with C123ABC456: %s", body)
+	}
+	// <!channel> must NOT survive as a raw token. Go's encoding/json
+	// HTMLEscape turns `&` into the literal sequence `&`, so the
+	// escaped Block Kit text `&lt;!channel&gt;` shows up in the wire
+	// body as `&lt;!channel&gt;`.
+	if strings.Contains(body, "<!channel>") {
+		t.Errorf("raw <!channel> must not survive with PreserveMentionTokens=true: %s", body)
+	}
+	// json.Marshal escapes `&` to the six-byte sequence &
+	// (HTMLEscape safety), so the entity-escaped `&lt;!channel&gt;`
+	// from the converter shows up in the wire body as the literal
+	// twelve-byte sequence "&lt;!channel&gt;".
+	if !strings.Contains(body, "\\u0026lt;!channel\\u0026gt;") {
+		t.Errorf("expected escaped <!channel>: %s", body)
+	}
+}
+
 func TestConvertTool_PreviewURLEnabled_ReturnsBuilderURL(t *testing.T) {
 	session, cleanup := newTestServer(t)
 	defer cleanup()

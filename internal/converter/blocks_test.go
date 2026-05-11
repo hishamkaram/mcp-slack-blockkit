@@ -40,6 +40,7 @@ func renderForTest(t *testing.T, opts Options, input string) ([]slack.Block, str
 	}
 	merged.EmitStandaloneLinkAsButton = opts.EmitStandaloneLinkAsButton
 	merged.AllowBroadcasts = opts.AllowBroadcasts
+	merged.PreserveMentionTokens = opts.PreserveMentionTokens
 	if opts.MentionMap != nil {
 		merged.MentionMap = opts.MentionMap
 	}

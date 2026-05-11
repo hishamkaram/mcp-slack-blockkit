@@ -74,6 +74,12 @@ internal packages.
 
 - `server.go` — `New(version) → *Server` constructs the MCP server,
   registers all five tools, exposes `RunStdio(ctx)`.
+- `http.go` — `RunHTTP` / `RunSSE`. Shares one `*mcp.Server` across
+  sessions (idiomatic per SDK docs). Hardened wrapping `http.Server`
+  (ReadHeaderTimeout, IdleTimeout, MaxHeaderBytes, MaxBytesHandler, no
+  WriteTimeout). Graceful shutdown via `RegisterOnShutdown` →
+  `session.Close()` for every active session. Optional bearer-token
+  middleware via `HTTPOptions{Token}` with constant-time compare.
 - `convert_tool.go` — `convert_markdown_to_block_kit`. Wires
   converter + splitter + preview into a single response.
 - `validate_tool.go` — `validate_block_kit`. Includes the shared
@@ -96,8 +102,10 @@ Cobra entry point. `main.go` (root + version + slog setup), `server.go`
 
 Public Go library re-exports. External consumers get a single stable
 import path: `github.com/hishamkaram/mcp-slack-block-kit/block_kit`. Type
-aliases for `Converter`, `Options`, `Mode`, `Validator`, etc. Functions
-delegate to `internal/`. Tests live in `block_kit_test` (external
+aliases for `Converter`, `Options`, `Mode`, `Validator`, `Server`,
+`HTTPOptions`, etc. Functions delegate to `internal/`. `server.go` adds
+`NewServer` + `RunStdio` / `RunHTTP` / `RunSSE` so embedders can run the
+MCP server in their own binary. Tests live in `block_kit_test` (external
 package) so any leak of internal-only behavior fails compilation here.
 
 ## AST → Block Kit mapping

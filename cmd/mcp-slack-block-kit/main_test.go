@@ -7,6 +7,66 @@ import (
 	"testing"
 )
 
+// --- server transport flag wiring ------------------------------------------
+
+func TestServerCmd_BothTransportFlags_ReturnsUsageError(t *testing.T) {
+	_, _, err := runRoot(t, "server", "--http-addr", "127.0.0.1:0", "--sse-addr", "127.0.0.1:0")
+	if err == nil {
+		t.Fatal("expected error when both transport flags are set, got nil")
+	}
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Errorf("expected 'mutually exclusive' in error; got %v", err)
+	}
+}
+
+func TestServerCmd_TokenWithoutAddr_ReturnsUsageError(t *testing.T) {
+	_, _, err := runRoot(t, "server", "--http-token", "abc")
+	if err == nil {
+		t.Fatal("expected error when --http-token has no addr, got nil")
+	}
+	if !strings.Contains(err.Error(), "--http-addr") {
+		t.Errorf("expected error to mention --http-addr; got %v", err)
+	}
+}
+
+func TestServerCmd_ResolveHTTPToken_FlagOverridesEnv(t *testing.T) {
+	got := resolveHTTPToken("flag-tok", "env-tok")
+	if got != "flag-tok" {
+		t.Errorf("flag should win; got %q", got)
+	}
+	got = resolveHTTPToken("", "env-tok")
+	if got != "env-tok" {
+		t.Errorf("env should be used when flag empty; got %q", got)
+	}
+	got = resolveHTTPToken("", "")
+	if got != "" {
+		t.Errorf("both empty → empty; got %q", got)
+	}
+}
+
+func TestServerCmd_ValidateServerFlags_TableCases(t *testing.T) {
+	cases := []struct {
+		name, http, sse, tok string
+		wantErr              bool
+	}{
+		{"all empty (stdio)", "", "", "", false},
+		{"http only", "127.0.0.1:7777", "", "", false},
+		{"sse only", "", "127.0.0.1:7778", "", false},
+		{"http + token", "127.0.0.1:7777", "", "abc", false},
+		{"sse + token", "", "127.0.0.1:7778", "abc", false},
+		{"both transports", "127.0.0.1:7777", "127.0.0.1:7778", "", true},
+		{"token alone", "", "", "abc", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateServerFlags(tc.http, tc.sse, tc.tok)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("err=%v wantErr=%v", err, tc.wantErr)
+			}
+		})
+	}
+}
+
 // runRoot is the shared test harness: build a fresh root with byte-buffer
 // streams, set the args, execute, and return what was written where.
 func runRoot(t *testing.T, args ...string) (stdout, stderr *bytes.Buffer, err error) {

@@ -7,7 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+- **converter**: new `Options.PreserveMentionTokens` flag. When enabled,
+  already-typed Slack mention tokens (`<@U…>` / `<@W…>` users, `<#C…>`
+  channels, `<!subteam^S…>` usergroups, `<!date^…|fallback>` dates) pass
+  through as typed rich_text elements instead of being entity-escaped.
+  Catastrophic broadcasts (`<!channel>` / `<!here>` / `<!everyone>`) and
+  URL-form tokens still escape — the new flag is strictly additive to
+  the safety contract. Surfaced on the `convert_markdown_to_block_kit`
+  MCP tool as `preserve_mention_tokens` and on the `convert` CLI
+  subcommand as `--preserve-mention-tokens`.
+- **server**: streamable-HTTP transport (MCP spec 2025-03) via
+  `--http-addr` on the `server` subcommand. Implements graceful
+  shutdown, per-session cleanup, body-size cap, slowloris/idle-timeout
+  hardening, and DNS-rebinding protection (SDK default).
+- **server**: legacy SSE transport (MCP spec 2024-11) via `--sse-addr`
+  for older MCP clients. `--http-addr` and `--sse-addr` are mutually
+  exclusive.
+- **server**: optional bearer-token authentication via `--http-token`
+  flag or `MCPSBK_HTTP_TOKEN` environment variable. Applies to both
+  HTTP and SSE transports. Constant-time comparison; returns 401 with
+  `WWW-Authenticate: Bearer` on mismatch.
+- **block_kit**: public `Server` type alias plus `NewServer`,
+  `RunStdio`, `RunHTTP`, `RunSSE`, and `HTTPOptions` re-exports so
+  external Go consumers can embed the MCP server in their own binary
+  without importing `internal/`.
 
 ---
 

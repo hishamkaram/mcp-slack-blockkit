@@ -79,11 +79,25 @@ type Options struct {
 	// need a larger ceiling should set an explicit value.
 	MaxInputBytes int
 
-	// AllowBroadcasts disables mention-sanitization. When false (default),
-	// raw `<!channel>` / `<!here>` / `<@U…>` / `<#C…>` text in markdown is
-	// HTML-entity-escaped so it doesn't broadcast. When true, those strings
-	// pass through verbatim.
+	// AllowBroadcasts disables mention-sanitization entirely. When false
+	// (default), every `<…>` / `&` byte in markdown text is HTML-entity-
+	// escaped so it can't broadcast or ping the workspace. When true, those
+	// bytes pass through verbatim — including the catastrophic-blast forms
+	// `<!channel>` / `<!here>` / `<!everyone>`. Use PreserveMentionTokens
+	// for the safer middle ground.
 	AllowBroadcasts bool
+
+	// PreserveMentionTokens narrowly allows already-typed Slack mention
+	// tokens to survive the entity-escape pass: `<@U…>` / `<@W…>`,
+	// `<#C…>`, `<!subteam^S…>`, and `<!date^…|fallback>` (each may carry
+	// an optional `|fallback`). These are the tokens Slack itself emits
+	// when retrieving messages, so legitimate IDs from upstream tool
+	// results (e.g. get_slack_user_info) survive intact.
+	//
+	// Catastrophic broadcasts (`<!channel>`, `<!here>`, `<!everyone>`) are
+	// NOT in the trusted set; they still escape unless AllowBroadcasts is
+	// also true. Default false.
+	PreserveMentionTokens bool
 
 	// MentionMap resolves bare `@handle` text to Slack user IDs (e.g.
 	// {"alice": "U123ABC"}). When set, matching `@handle` substrings are
@@ -106,6 +120,7 @@ func DefaultOptions() Options {
 		ParagraphCharLimit:         MaxSectionTextChars,
 		MaxInputBytes:              DefaultMaxInputBytes,
 		AllowBroadcasts:            false,
+		PreserveMentionTokens:      false,
 		MentionMap:                 nil,
 		EnableTables:               true,
 	}

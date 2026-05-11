@@ -31,8 +31,15 @@ import (
 //     channel/usergroup elements when handle is in Options.MentionMap.
 //     This MUST run before sanitization, otherwise its output (which it
 //     marks as already-safe) would be re-escaped.
-//  3. resolveEmoji merges fragmented text and extracts `:name:` shortcodes.
-//  4. sanitizeBroadcasts entity-escapes any remaining &/</> in text
+//  3. expandTrustedMentions replaces already-typed Slack tokens
+//     (`<@U…>`, `<#C…>`, `<!subteam^S…>`, `<!date^…|fallback>`) with
+//     typed elements when Options.PreserveMentionTokens is true. Like
+//     applyMentionMap, this runs before sanitization so its output
+//     survives the entity-escape pass; the catastrophic broadcast forms
+//     (`<!channel>` etc.) are deliberately not in the trusted set, so
+//     they still escape.
+//  4. resolveEmoji merges fragmented text and extracts `:name:` shortcodes.
+//  5. sanitizeBroadcasts entity-escapes any remaining &/</> in text
 //     elements (skipped when Options.AllowBroadcasts is true).
 //
 //nolint:revive // exported-only-for-package-internal usage; tests may import in a future split.
@@ -44,6 +51,9 @@ func renderInlinesWithOpts(node ast.Node, source []byte, opts Options) []slack.R
 	rc.flushPending()
 	out := rc.out
 	out = applyMentionMap(out, opts.MentionMap)
+	if opts.PreserveMentionTokens {
+		out = expandTrustedMentions(out)
+	}
 	out = resolveEmoji(out)
 	out = sanitizeBroadcasts(out, opts.AllowBroadcasts)
 	return out

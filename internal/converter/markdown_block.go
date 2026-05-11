@@ -22,12 +22,23 @@ var ErrMarkdownBlockTooLarge = fmt.Errorf("input exceeds Slack markdown-block %d
 // is content-only — Slack's markdown-block parser interprets the escaped
 // text and renders it correctly because mrkdwn parsers run after the
 // entity-decode step on Slack's side.
+//
+// When Options.PreserveMentionTokens is true, the four trusted Slack
+// token shapes (`<@U…>`, `<#C…>`, `<!subteam^S…>`, `<!date^…|fallback>`)
+// pass through verbatim while the rest of the input is still escaped.
+// This lets legitimate Slack-emitted mentions survive when the input came
+// from an upstream Slack tool result.
 func (r *Renderer) emitMarkdownBlock(input string) ([]slack.Block, error) {
 	if len(input) > MaxMarkdownBlockSum {
 		return nil, fmt.Errorf("%w: %d chars", ErrMarkdownBlockTooLarge, len(input))
 	}
 	safe := input
-	if !r.opts.AllowBroadcasts {
+	switch {
+	case r.opts.AllowBroadcasts:
+		// No escaping at all.
+	case r.opts.PreserveMentionTokens:
+		safe = escapePreservingTokens(input)
+	default:
 		safe = entityEscape(input)
 	}
 	// blockID on a markdown block is per Slack docs "ignored… and will not

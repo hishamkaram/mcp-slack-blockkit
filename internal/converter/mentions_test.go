@@ -48,6 +48,73 @@ func TestSanitization_BroadcastForms_AllEscapedByDefault(t *testing.T) {
 	}
 }
 
+// TestSanitization_BroadcastForms_WithPreserveMentionTokens is the
+// parallel of the default-off suite for PreserveMentionTokens=true.
+// The four typed-mention shapes promote to typed elements, but the
+// three catastrophic broadcasts (`!channel` / `!here` / `!everyone`)
+// STILL get escaped. This is the strongest line in the safety contract:
+// users can enable typed-token passthrough without re-opening the
+// broadcast-blast vector.
+func TestSanitization_BroadcastForms_WithPreserveMentionTokens(t *testing.T) {
+	opts := Options{Mode: ModeRichText, PreserveMentionTokens: true}
+
+	// Broadcasts MUST still escape.
+	for _, tc := range []struct{ name, in, want string }{
+		{"!channel", "alert <!channel> please", "&lt;!channel&gt;"},
+		{"!here", "ping <!here> right now", "&lt;!here&gt;"},
+		{"!everyone", "<!everyone> heads up", "&lt;!everyone&gt;"},
+	} {
+		t.Run("escape/"+tc.name, func(t *testing.T) {
+			blocks, _ := renderForTest(t, opts, tc.in)
+			text := concatTextElements(blocks)
+			if !strings.Contains(text, tc.want) {
+				t.Errorf("expected escaped %q in text %q", tc.want, text)
+			}
+		})
+	}
+
+	// Typed mentions MUST promote.
+	t.Run("promote/user", func(t *testing.T) {
+		blocks, _ := renderForTest(t, opts, "see <@U012AB3CD> for context")
+		sec := firstSection(t, blocks)
+		found := false
+		for _, el := range sec.Elements {
+			if u, ok := el.(*slack.RichTextSectionUserElement); ok && u.UserID == "U012AB3CD" {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("user element not promoted")
+		}
+	})
+	t.Run("promote/channel", func(t *testing.T) {
+		blocks, _ := renderForTest(t, opts, "in <#C123ABC456> we discussed")
+		sec := firstSection(t, blocks)
+		found := false
+		for _, el := range sec.Elements {
+			if c, ok := el.(*slack.RichTextSectionChannelElement); ok && c.ChannelID == "C123ABC456" {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("channel element not promoted")
+		}
+	})
+	t.Run("promote/subteam", func(t *testing.T) {
+		blocks, _ := renderForTest(t, opts, "cc <!subteam^S012ABC>")
+		sec := firstSection(t, blocks)
+		found := false
+		for _, el := range sec.Elements {
+			if g, ok := el.(*slack.RichTextSectionUserGroupElement); ok && g.UsergroupID == "S012ABC" {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("usergroup element not promoted")
+		}
+	})
+}
+
 // concatTextElements walks the converted blocks and joins all text payloads
 // (rich_text section text + markdown block content) into one string.
 // Used by sanitization tests so they can assert on raw text without

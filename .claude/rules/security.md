@@ -31,17 +31,46 @@ The implementation lives in `internal/converter/mentions.go`:
 The pipeline order in `renderInlinesWithOpts`:
 
 ```
-1. visit()             // build raw elements from AST
-2. applyMentionMap()   // intentional mentions → typed elements
-3. resolveEmoji()      // :name: → emoji elements
-4. sanitizeBroadcasts() // entity-escape any remaining stray <, >, &
+1. visit()                  // build raw elements from AST
+2. applyMentionMap()        // intentional mentions → typed elements
+3. expandTrustedMentions()  // pre-typed Slack tokens → typed elements (only when PreserveMentionTokens)
+4. resolveEmoji()           // :name: → emoji elements
+5. sanitizeBroadcasts()     // entity-escape any remaining stray <, >, &
 ```
 
 **For the markdown_block path** (`emitMarkdownBlock` in
 `markdown_block.go`), the same `entityEscape` runs over the input
-unless `AllowBroadcasts` is true. Don't reintroduce the old
-`basicEscapeForMarkdownBlock` stub — it was deleted in step 11 in favor
-of the unified sanitizer.
+unless `AllowBroadcasts` is true. When `PreserveMentionTokens` is true
+the path uses `escapePreservingTokens` instead: trusted-token spans
+pass through verbatim, everything else still escapes. Don't
+reintroduce the old `basicEscapeForMarkdownBlock` stub — it was
+deleted in step 11 in favor of the unified sanitizer.
+
+## PreserveMentionTokens — the safer escape hatch
+
+`Options.PreserveMentionTokens` (default `false`) lets already-typed
+Slack tokens survive the escape pass without granting blanket
+passthrough. Only four token shapes are trusted, with strict character
+classes:
+
+| Trusted | Class |
+|---|---|
+| `<@U…>` / `<@W…>` (optional `\|fallback`) | `[UW][A-Z0-9]{2,}` |
+| `<#C…>` (optional `\|name`) | `C[A-Z0-9]{2,}` |
+| `<!subteam^S…>` (optional `\|handle`) | `S[A-Z0-9]{2,}` |
+| `<!date^TS^tokens[^link]\|fallback>` | `\d{1,15}` timestamp |
+
+**NOT trusted** even with `PreserveMentionTokens=true`: `<!channel>`,
+`<!here>`, `<!everyone>`, URL-form tokens (`<https://…|label>`), or
+anything with whitespace inside the brackets, lowercase IDs, or `<`/
+`>`/`&`/`|` inside the fallback body. Those still get
+`entityEscape`-d unless `AllowBroadcasts=true`.
+
+If you add a new trusted shape, update both the regex in
+`internal/converter/mention_tokens.go::trustedSlackToken` and the
+conformance suites
+(`TestSanitization_BroadcastForms_WithPreserveMentionTokens` plus
+`TestPreserveTokens_AdversarialInputs_NotPromoted`).
 
 ## How to forget this (and why you must not)
 
@@ -65,9 +94,16 @@ of the unified sanitizer.
 ## Tests
 
 Whenever you touch this rule's domain, ensure the conformance suite
-still covers all six broadcast / mention forms. The suite is
-`TestSanitization_BroadcastForms_AllEscapedByDefault` in
-`internal/converter/mentions_test.go`. Subtests:
+still covers all six broadcast / mention forms. The default-off suite
+is `TestSanitization_BroadcastForms_AllEscapedByDefault` in
+`internal/converter/mentions_test.go`. The
+`PreserveMentionTokens=true` parallel is
+`TestSanitization_BroadcastForms_WithPreserveMentionTokens` and asserts
+that broadcasts still escape while typed mentions promote. The
+adversarial-input table in
+`TestPreserveTokens_AdversarialInputs_NotPromoted` (in
+`mention_tokens_test.go`) covers attempts to bypass via lowercase IDs,
+fallback smuggling, whitespace, and URL-form. Subtests:
 
 - `!channel`, `!here`, `!everyone`
 - `user mention` (`<@U012AB3CD>`)

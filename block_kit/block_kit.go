@@ -38,6 +38,16 @@
 //	    pr, _ := block_kit.PreviewURL(blocks)
 //	    fmt.Println("preview:", pr.URL)
 //	}
+//
+// Embedding the MCP server in your own binary:
+//
+//	srv, _ := block_kit.NewServer("v1.2.3")
+//	// Stdio (default for Claude Desktop / Cursor launches):
+//	_ = block_kit.RunStdio(ctx, srv)
+//	// Streamable HTTP for HTTP-based MCP clients:
+//	_ = block_kit.RunHTTP(ctx, srv, "127.0.0.1:7777", block_kit.HTTPOptions{})
+//	// With bearer-token auth:
+//	_ = block_kit.RunHTTP(ctx, srv, "127.0.0.1:7777", block_kit.HTTPOptions{Token: "s3cret"})
 package block_kit
 
 import (

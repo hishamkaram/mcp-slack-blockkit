@@ -115,6 +115,50 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`
 The same shape works in **Cursor**, **Continue.dev**, **Zed**, **Cline**,
 and any other MCP-compatible client that supports the stdio transport.
 
+### Transports
+
+The default `mcp-slack-block-kit` (or `mcp-slack-block-kit server`)
+invocation runs the **stdio** transport — what Claude Desktop, Cursor,
+and Continue.dev launch. For HTTP-based MCP clients (remote runners,
+multi-tenant hosts, containerized deployments), two HTTP transports are
+also available via flags. Both default to localhost-only binds and the
+SDK's DNS-rebinding protection stays on:
+
+```sh
+# Streamable HTTP (spec 2025-03 — preferred for new MCP clients):
+mcp-slack-block-kit server --http-addr 127.0.0.1:7777
+
+# Legacy Server-Sent Events (spec 2024-11 — older clients):
+mcp-slack-block-kit server --sse-addr 127.0.0.1:7778
+
+# With a bearer token (applies to both --http-addr and --sse-addr):
+mcp-slack-block-kit server --http-addr 127.0.0.1:7777 --http-token s3cret
+# The token can also come from the MCPSBK_HTTP_TOKEN environment variable.
+```
+
+When auth is enabled the server requires
+`Authorization: Bearer <token>` on every incoming request and replies
+with `401 Unauthorized` otherwise. `--http-addr` and `--sse-addr` are
+mutually exclusive. For exposure beyond localhost, run behind a reverse
+proxy that terminates TLS and enforces auth — the binary intentionally
+ships without built-in TLS.
+
+### Library usage (embed the server in your own binary)
+
+External Go consumers can import `block_kit` and embed the MCP server
+the same way they embed the converter:
+
+```go
+import "github.com/hishamkaram/mcp-slack-block-kit/block_kit"
+
+srv, _ := block_kit.NewServer("v1.2.3")
+// Stdio (matches the default binary launch):
+_ = block_kit.RunStdio(ctx, srv)
+// Or streamable HTTP with optional bearer auth:
+_ = block_kit.RunHTTP(ctx, srv, "127.0.0.1:7777",
+    block_kit.HTTPOptions{Token: "s3cret"})
+```
+
 ## Use it from the CLI
 
 ````sh

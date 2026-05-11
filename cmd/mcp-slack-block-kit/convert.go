@@ -27,12 +27,13 @@ import (
 //	cat doc.md | mcp-slack-block-kit convert --preview > payload.json
 func newConvertCmd(stderr io.Writer, stdout io.Writer, stdin io.Reader) *cobra.Command {
 	var (
-		mode            string
-		previewFlag     bool
-		allowBroadcasts bool
-		blockIDPrefix   string
-		maxInputBytes   int
-		pretty          bool
+		mode                  string
+		previewFlag           bool
+		allowBroadcasts       bool
+		preserveMentionTokens bool
+		blockIDPrefix         string
+		maxInputBytes         int
+		pretty                bool
 	)
 
 	cmd := &cobra.Command{
@@ -54,6 +55,7 @@ func newConvertCmd(stderr io.Writer, stdout io.Writer, stdin io.Reader) *cobra.C
 				opts.Mode = converter.Mode(mode)
 			}
 			opts.AllowBroadcasts = allowBroadcasts
+			opts.PreserveMentionTokens = preserveMentionTokens
 			if blockIDPrefix != "" {
 				opts.BlockIDPrefix = blockIDPrefix
 			}
@@ -119,6 +121,8 @@ func newConvertCmd(stderr io.Writer, stdout io.Writer, stdin io.Reader) *cobra.C
 		"emit Block Kit Builder preview URL on stderr alongside JSON output")
 	cmd.Flags().BoolVar(&allowBroadcasts, "allow-broadcasts", false,
 		"allow raw <!channel>/<!here>/<@U…> in input to pass through unescaped (DEFAULT FALSE for safety)")
+	cmd.Flags().BoolVar(&preserveMentionTokens, "preserve-mention-tokens", false,
+		"allow already-typed Slack mention tokens (<@U…>/<#C…>/<!subteam^S…>/<!date^…|fb>) to pass through while still escaping catastrophic broadcasts (<!channel>/<!here>/<!everyone>)")
 	cmd.Flags().StringVar(&blockIDPrefix, "block-id-prefix", "",
 		"optional prefix for generated block_id values")
 	cmd.Flags().IntVar(&maxInputBytes, "max-input-bytes", 0,
