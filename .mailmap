@@ -1,0 +1,12 @@
+# Canonicalize commit identities for `git log --use-mailmap`, `git
+# shortlog`, and GitHub's web UI.
+#
+# Background: the maintainer's earlier commits used a private gmail
+# address before GitHub's "block push of private email" protection was
+# enabled; later commits use the GitHub noreply form. Some commits also
+# used the longer "Hesham Waleed Karam" name form before the maintainer
+# settled on "Hesham Karm". All collapse to one canonical identity below.
+
+Hesham Karm <24391550+hishamkaram@users.noreply.github.com>
+Hesham Karm <24391550+hishamkaram@users.noreply.github.com> <hishamwaleedkaram@gmail.com>
+Hesham Karm <24391550+hishamkaram@users.noreply.github.com> Hesham Waleed Karam <24391550+hishamkaram@users.noreply.github.com>
