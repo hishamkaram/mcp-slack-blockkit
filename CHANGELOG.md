@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+---
+
+## [0.2.0] - 2026-05-11
+
+### Added
 - **converter**: new `Options.PreserveMentionTokens` flag. When enabled,
   already-typed Slack mention tokens (`<@U…>` / `<@W…>` users, `<#C…>`
   channels, `<!subteam^S…>` usergroups, `<!date^…|fallback>` dates) pass
@@ -32,6 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `RunStdio`, `RunHTTP`, `RunSSE`, and `HTTPOptions` re-exports so
   external Go consumers can embed the MCP server in their own binary
   without importing `internal/`.
+- **repo**: `.mailmap` to canonicalize maintainer commit identities
+  across the gmail / GitHub-noreply forms for `git log` and the GitHub
+  web UI.
 
 ---
 
@@ -184,5 +197,6 @@ cosign verify-blob \
 - Slack Block Kit Builder URLs above ~8 KiB get unreliable in
   browsers/Slack — the preview tool flags those as `Truncated: true`.
 
-[Unreleased]: https://github.com/hishamkaram/mcp-slack-block-kit/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/hishamkaram/mcp-slack-block-kit/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.2.0
 [0.1.0]: https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.1.0
