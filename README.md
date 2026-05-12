@@ -257,5 +257,5 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
-[MIT](LICENSE) © 2026 Hesham Waleed Karam.
+[MIT](LICENSE) © 2026 Hesham Karm.
 [Third-party notices](NOTICE).
