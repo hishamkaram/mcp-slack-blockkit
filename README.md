@@ -12,7 +12,8 @@
 
 > A single-binary [Model Context Protocol][mcp] server (and CLI) that
 > converts AI-generated markdown into valid [Slack Block Kit][block-kit] JSON.
-> Credential-free, runs over stdio, ships as a static Go binary.
+> Credential-free, ships as a static Go binary, speaks stdio / streamable
+> HTTP / SSE.
 
 [mcp]: https://modelcontextprotocol.io/
 [block-kit]: https://docs.slack.dev/block-kit/
@@ -64,10 +65,18 @@ block is *adjacent* to the quote, not visually nested inside it.
 ### Security
 
 Every text run is HTML-entity-escaped by default so AI-generated content
-can't broadcast `<!channel>` / `<!here>` / `<@U…>` to your workspace. Set
-`allow_broadcasts: true` on the tool input to opt out (don't, unless the
-input is fully trusted). See [SECURITY.md](SECURITY.md) for the full
-threat model.
+can't broadcast `<!channel>` / `<!here>` / `<@U…>` to your workspace.
+Two narrowing knobs:
+
+- `preserve_mention_tokens: true` — already-typed Slack mention tokens
+  (`<@U…>`, `<#C…>`, `<!subteam^S…>`, `<!date^…|fallback>`) pass through
+  as typed elements, while catastrophic broadcasts (`<!channel>`,
+  `<!here>`, `<!everyone>`) **still escape**. Use this when the markdown
+  comes from an upstream Slack tool result (e.g. `get_slack_user_info`).
+- `allow_broadcasts: true` — disables sanitization entirely. Don't use
+  this unless the input is fully trusted.
+
+See [SECURITY.md](SECURITY.md) for the full threat model.
 
 ## Install
 
@@ -79,8 +88,9 @@ go install github.com/hishamkaram/mcp-slack-block-kit/cmd/mcp-slack-block-kit@la
 # https://github.com/hishamkaram/mcp-slack-block-kit/releases/latest
 ```
 
-> Homebrew tap (`brew install hishamkaram/tap/mcp-slack-block-kit`) is
-> coming in v0.1.1 — the tap repo + publishing PAT need to be set up first.
+> A Homebrew tap (`brew install hishamkaram/tap/mcp-slack-block-kit`)
+> is planned; tap publishing is currently disabled in the GoReleaser
+> config pending tap-repo + publishing-PAT setup.
 
 Verify a release with [cosign](https://docs.sigstore.dev/cosign/overview/):
 
@@ -94,7 +104,7 @@ cosign verify-blob \
 
 Release tags are SSH-signed (ed25519); GitHub displays a green
 "Verified" badge on each tag page (e.g.
-[v0.1.0](https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.1.0)).
+[v0.2.0](https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.2.0)).
 
 ## Use it from Claude Desktop
 
@@ -187,8 +197,9 @@ echo '# title' | mcp-slack-block-kit convert --preview
 ```
 
 Other useful flags: `--mode={auto|rich_text|markdown_block|section_mrkdwn}`,
-`--allow-broadcasts`, `--block-id-prefix=<str>`, `--max-input-bytes=<n>`,
-`--pretty`. Full help: `mcp-slack-block-kit convert --help`.
+`--allow-broadcasts`, `--preserve-mention-tokens`,
+`--block-id-prefix=<str>`, `--max-input-bytes=<n>`, `--pretty`. Full
+help: `mcp-slack-block-kit convert --help`.
 
 ## Use it from Go
 

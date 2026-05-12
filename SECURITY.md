@@ -54,8 +54,19 @@ A bypass here would let AI-generated content containing literal
 This is the single most likely vector for a CVE-worthy report — any
 finding in this area gets fast-tracked and warrants CVE coordination.
 
+`Options.PreserveMentionTokens` (added in v0.2.0) is **not** a bypass:
+it only promotes already-typed `<@U…>` / `<#C…>` / `<!subteam^S…>` /
+`<!date^…|fb>` tokens to typed elements and leaves catastrophic
+broadcasts (`<!channel>`, `<!here>`, `<!everyone>`) escaped. Findings
+that show a `PreserveMentionTokens=true` configuration causing a
+broadcast still qualify as CVE-worthy.
+
 The conformance suite that guards this rule is in
-`internal/converter/mentions_test.go` (`TestSanitization_*`).
+`internal/converter/mentions_test.go`
+(`TestSanitization_BroadcastForms_AllEscapedByDefault` plus the
+`PreserveMentionTokens=true` parallel) and the adversarial-input
+table in `internal/converter/mention_tokens_test.go`
+(`TestPreserveTokens_AdversarialInputs_NotPromoted`).
 
 ### Input bounding
 
@@ -69,6 +80,22 @@ public-facing MCP server would enable trivial memory exhaustion.
 payload via `url.QueryEscape` before appending to the Builder URL.
 Any future edit that bypasses `QueryEscape` would let a hostile block
 payload break out of the URL fragment.
+
+### HTTP / SSE transports
+
+`internal/server/http.go` exposes the MCP server over streamable HTTP
+(`--http-addr`) and legacy SSE (`--sse-addr`). The transports default
+to no auth; operators who bind on non-loopback addresses are expected
+to either set `--http-token` (or `MCPSBK_HTTP_TOKEN`) for bearer-token
+auth, or front the server with a reverse proxy that terminates TLS
+and enforces auth. The binary intentionally ships without built-in
+TLS. The bearer-token middleware uses
+`crypto/subtle.ConstantTimeCompare`; do not introduce a non-constant
+comparison anywhere in the auth path. The SDK's DNS-rebinding
+protection is left enabled by default; don't disable it without
+documenting the threat model. Note that
+`http.Server.WriteTimeout` is deliberately unset because it would
+terminate long-lived SSE GET streams — don't add it.
 
 ## Out of scope
 

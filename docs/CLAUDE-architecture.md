@@ -12,8 +12,9 @@ the main CLAUDE.md's <200-line budget.
 Walks goldmark's AST and emits `[]slack.Block`. Files:
 
 - `options.go` — `Options` struct + `DefaultOptions()` + `validate()`.
-  Single source of truth for tunables (Mode, BlockIDPrefix, MaxInputBytes,
-  AllowBroadcasts, MentionMap, EnableTables, etc.).
+  Single source of truth for tunables (Mode, BlockIDPrefix,
+  MaxInputBytes, AllowBroadcasts, PreserveMentionTokens, MentionMap,
+  EnableTables, etc.).
 - `renderer.go` — `Renderer` struct + `New(opts) → *Renderer` + the
   top-level `Convert(input) → []slack.Block` mode-dispatching entry point.
   Reuses one `goldmark.Markdown` per Renderer (safe per goldmark docs).
@@ -35,6 +36,11 @@ Walks goldmark's AST and emits `[]slack.Block`. Files:
 - `mentions.go` — entity-escape sanitizer + `MentionMap` `@handle`
   resolver. `applyMentionMap` runs before `resolveEmoji` runs before
   `sanitizeBroadcasts`.
+- `mention_tokens.go` — `trustedSlackToken` regex + `expandTrustedMentions`
+  (rich_text path) and `escapePreservingTokens` (markdown_block path).
+  Gated on `Options.PreserveMentionTokens`. Promotes already-typed
+  `<@U…>`/`<#C…>`/`<!subteam^S…>`/`<!date^…|fb>` to typed elements
+  while catastrophic broadcasts still escape.
 - `markdown_block.go` — auto-mode picker (`shouldUseMarkdownBlock`) +
   `emitMarkdownBlock` (single Slack `markdown` block, ≤12k chars).
 
@@ -95,8 +101,10 @@ internal packages.
 ### `cmd/mcp-slack-block-kit/`
 
 Cobra entry point. `main.go` (root + version + slog setup), `server.go`
-(default `server` subcommand → `internal/server.RunStdio`), `convert.go`
-(CLI subcommand → `internal/converter` directly).
+(default `server` subcommand: dispatches to `RunStdio` / `RunHTTP` /
+`RunSSE` based on `--http-addr` / `--sse-addr`; mutual-exclusion
+validated; `--http-token` flag with `MCPSBK_HTTP_TOKEN` env fallback),
+`convert.go` (CLI subcommand → `internal/converter` directly).
 
 ### `block_kit/`
 
@@ -128,7 +136,8 @@ reference for the high-traffic cases:
 | GFM table | `extast.Table` (auto mode) | single `markdown` block |
 | GFM table (rich_text mode or large) | `extast.Table` | native `slack.TableBlock` |
 | `:wave:` | text after merge | `rich_text_section_emoji` element |
-| `<!channel>` literal text | text | entity-escaped (or passthrough w/ `AllowBroadcasts`) |
+| `<!channel>` / `<!here>` / `<!everyone>` literal text | text | entity-escaped (passthrough only w/ `AllowBroadcasts`, never with `PreserveMentionTokens` alone) |
+| `<@U…>` / `<#C…>` / `<!subteam^S…>` / `<!date^…\|fb>` literal text | text | entity-escaped by default; typed `rich_text_section_user` / `_channel` / `_usergroup` / `_date` w/ `PreserveMentionTokens` |
 | `@alice` (in MentionMap) | text | `rich_text_section_user` element with U… ID |
 
 ## Splitter rules

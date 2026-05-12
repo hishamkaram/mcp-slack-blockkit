@@ -51,12 +51,20 @@ CI mirrors all of the above. Coverage gate: **≥80% overall, enforced in
   `Options.AllowBroadcasts == true`. Without this, AI-generated content
   containing literal `<!channel>` / `<!here>` / `<@U…>` would broadcast
   or ping the workspace. Path-scoped rule: see
-  `.claude/rules/security.md`.
+  `.claude/rules/security.md`. `Options.PreserveMentionTokens` is the
+  narrower escape hatch (typed Slack tokens pass through; catastrophic
+  broadcasts still escape) — the safer alternative to `AllowBroadcasts`
+  when the markdown comes from a trusted Slack tool result.
 - **Bound input.** `Options.MaxInputBytes` (default 256 KiB) keeps
   goldmark from allocating gigabytes on hostile input. Don't bypass.
+- **HTTP/SSE transports default to localhost.** When wiring a new HTTP
+  feature, keep the SDK's DNS-rebinding protection enabled; don't set
+  `WriteTimeout` on the wrapping `http.Server` (kills SSE GETs); use
+  `crypto/subtle.ConstantTimeCompare` for any token comparison.
 - **No secrets in this repo.** The server holds none. Don't log
   `os.Environ()`, request bodies at INFO, or anything that might contain
-  user PII.
+  user PII. The bearer-token middleware logs request lines but never
+  the token value.
 
 ## Repository layout
 
