@@ -15,6 +15,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.2.1] - 2026-05-13
+
+### Fixed
+- **converter**: link conversion in `markdown_block` and `auto` modes.
+  The previous emitter ran `entityEscape` over the raw input, which
+  destroyed CommonMark autolink syntax (`<https://example.com>` rendered
+  as literal `&lt;https://example.com&gt;` text in Slack) and never
+  recognized Slack's mrkdwn `<URL|label>` URL-form emitted by Slack tool
+  results (so the user's real-world `<https://…|Refa UGC v3 shared-drive>`
+  rendered with visible angle brackets and pipe). Replaced with an AST
+  walker that re-emits Slack-supported CommonMark text:
+  - CommonMark URL autolinks (`<url>`), email autolinks (`<email>`),
+    and Linkify-detected bare URLs are promoted to `[url](url)` /
+    `[email](mailto:email)` — the only link form Slack's `markdown`
+    block documents as supported.
+  - Slack's `<URL|label>` mrkdwn URL-form is rewritten to CommonMark
+    `[label](URL)` before goldmark parses, fixing the failure for both
+    `rich_text` and `markdown_block` modes.
+  - Text content still entity-escapes for broadcast safety; URLs and
+    code-block contents pass through verbatim.
+- **converter**: rich_text mode now recognizes Slack mrkdwn URL-form
+  input (`<URL|label>`) and produces a proper `rich_text_section_link`
+  element. Previously the construct fell through to the text path and
+  was entity-escaped.
+
+### Added
+- **converter**: maintainer-facing `TestLinks_PrintBuilderURLs` test
+  that prints Block Kit Builder URLs for every link shape × mode so
+  visual QA in a Slack workspace is a copy-paste away. Run with
+  `go test -v -run TestLinks_PrintBuilderURLs ./internal/converter/`.
+
+---
+
 ## [0.2.0] - 2026-05-11
 
 ### Added
@@ -197,6 +230,7 @@ cosign verify-blob \
 - Slack Block Kit Builder URLs above ~8 KiB get unreliable in
   browsers/Slack — the preview tool flags those as `Truncated: true`.
 
-[Unreleased]: https://github.com/hishamkaram/mcp-slack-block-kit/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/hishamkaram/mcp-slack-block-kit/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.2.1
 [0.2.0]: https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.2.0
 [0.1.0]: https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.1.0
