@@ -43,6 +43,22 @@ Walks goldmark's AST and emits `[]slack.Block`. Files:
   while catastrophic broadcasts still escape.
 - `markdown_block.go` — auto-mode picker (`shouldUseMarkdownBlock`) +
   `emitMarkdownBlock` (single Slack `markdown` block, ≤12k chars).
+- `markdown_block_emit.go` — AST-driven walker that produces the
+  CommonMark text payload for the `markdown` block. Re-emits each AST
+  node as Slack-supported syntax: `[text](url)` for links (including
+  promoted autolinks and Linkify-detected bare URLs, since `<url>` is
+  not documented as supported by Slack's markdown block); HTML-entity
+  escape for text content (broadcast safety); raw passthrough for code
+  spans and fenced code blocks. Replaced the previous "blanket
+  `entityEscape` over raw input" approach, which corrupted CommonMark
+  autolink syntax.
+- `slack_mrkdwn_links.go` — pre-parse regex rewriter that converts
+  Slack's mrkdwn `<URL|label>` URL-form (emitted by Slack tool results;
+  not recognized by goldmark, not supported by the new `markdown`
+  block) into CommonMark `[label](URL)`. Runs once in
+  `renderer.go::ConvertWithWarnings` before goldmark sees the input,
+  so both modes benefit. Known limitation: not AST-aware at pre-parse
+  time, so `<url|label>` inside a code span is still rewritten.
 
 ### `internal/validator/`
 
@@ -139,6 +155,10 @@ reference for the high-traffic cases:
 | `<!channel>` / `<!here>` / `<!everyone>` literal text | text | entity-escaped (passthrough only w/ `AllowBroadcasts`, never with `PreserveMentionTokens` alone) |
 | `<@U…>` / `<#C…>` / `<!subteam^S…>` / `<!date^…\|fb>` literal text | text | entity-escaped by default; typed `rich_text_section_user` / `_channel` / `_usergroup` / `_date` w/ `PreserveMentionTokens` |
 | `@alice` (in MentionMap) | text | `rich_text_section_user` element with U… ID |
+| `[text](url)` | `*ast.Link` | rich_text: `rich_text_section_link`. markdown_block: pass-through `[text](url)`. URL bytes preserved verbatim in both. |
+| `<https://x.com>` / `<u@x.com>` | `*ast.AutoLink` | rich_text: `rich_text_section_link` (email gets `mailto:` prefix). markdown_block: re-emitted as `[url](url)` / `[email](mailto:email)` because `<url>` is not documented as supported by Slack's markdown block. |
+| bare URL in prose | `*ast.AutoLink` (via GFM Linkify) | Same as `<https://x.com>` — Linkify produces the same AST node as an explicit autolink, so both paths handle them identically. |
+| `<URL\|label>` (Slack mrkdwn URL-form) | unrecognized by goldmark | Pre-parse `rewriteSlackURLForms` converts to CommonMark `[label](URL)` before goldmark sees it; both modes then handle as a regular Link. Slack's `markdown` block does NOT accept `<URL\|label>` natively (that form is mrkdwn-only). |
 
 ## Splitter rules
 
