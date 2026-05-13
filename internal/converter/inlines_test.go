@@ -233,6 +233,35 @@ func TestRenderInlines_ReferenceLink_Resolved(t *testing.T) {
 	}
 }
 
+// --- Slack mrkdwn URL-form ---------------------------------------------------
+
+// TestRenderInlines_SlackURLForm_BecomesLink confirms that the
+// pre-parse rewriter in renderer.go turns Slack's `<URL|label>` mrkdwn
+// extension into a CommonMark `[label](URL)` link, which goldmark then
+// emits as a regular Link AST node, which the inline visitor emits as a
+// rich_text_section_link. This is the rich_text counterpart of
+// emitMarkdownBlockText's Slack-URL-form coverage.
+func TestRenderInlines_SlackURLForm_BecomesLink(t *testing.T) {
+	in := "<https://docs.google.com/spreadsheets/d/1m%7CfaCR/edit%7Cv3|Refa UGC v3 shared-drive>"
+	blocks, _ := renderForTest(t, Options{}, in)
+	sec := firstSection(t, blocks)
+	var link *slack.RichTextSectionLinkElement
+	for _, el := range sec.Elements {
+		if l, ok := el.(*slack.RichTextSectionLinkElement); ok {
+			link = l
+		}
+	}
+	if link == nil {
+		t.Fatalf("expected a link element, got elements: %#v", sec.Elements)
+	}
+	if link.URL != "https://docs.google.com/spreadsheets/d/1m%7CfaCR/edit%7Cv3" {
+		t.Errorf("link URL = %q", link.URL)
+	}
+	if link.Text != "Refa UGC v3 shared-drive" {
+		t.Errorf("link text = %q", link.Text)
+	}
+}
+
 // --- Mixed -------------------------------------------------------------------
 
 func TestRenderInlines_MixedStylesPlainText_AllElementsRoundTrip(t *testing.T) {

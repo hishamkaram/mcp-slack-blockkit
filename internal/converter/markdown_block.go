@@ -14,38 +14,41 @@ import (
 // decomposition.
 var ErrMarkdownBlockTooLarge = fmt.Errorf("input exceeds Slack markdown-block %d-char limit", MaxMarkdownBlockSum)
 
-// emitMarkdownBlock packages the input as a single slack.MarkdownBlock.
-// The text content is entity-escaped (via the same sanitizer used in
-// renderInlines) unless Options.AllowBroadcasts is true, so a literal
-// `<!channel>` in AI-generated input can't broadcast through this path.
-// Real markdown syntax (autolinks like `<https://...>`, fenced code blocks)
-// is content-only — Slack's markdown-block parser interprets the escaped
-// text and renders it correctly because mrkdwn parsers run after the
-// entity-decode step on Slack's side.
+// emitMarkdownBlock packages the AST as a single slack.MarkdownBlock.
 //
-// When Options.PreserveMentionTokens is true, the four trusted Slack
-// token shapes (`<@U…>`, `<#C…>`, `<!subteam^S…>`, `<!date^…|fallback>`)
-// pass through verbatim while the rest of the input is still escaped.
-// This lets legitimate Slack-emitted mentions survive when the input came
-// from an upstream Slack tool result.
-func (r *Renderer) emitMarkdownBlock(input string) ([]slack.Block, error) {
-	if len(input) > MaxMarkdownBlockSum {
-		return nil, fmt.Errorf("%w: %d chars", ErrMarkdownBlockTooLarge, len(input))
-	}
-	safe := input
-	switch {
-	case r.opts.AllowBroadcasts:
-		// No escaping at all.
-	case r.opts.PreserveMentionTokens:
-		safe = escapePreservingTokens(input)
-	default:
-		safe = entityEscape(input)
+// The AST walker (emitMarkdownBlockText) re-emits CommonMark text
+// suitable for Slack's documented markdown-block syntax:
+//
+//   - Text content is HTML-entity-escaped for broadcast safety
+//     (`<!channel>` → `&lt;!channel&gt;`).
+//   - CommonMark autolinks (`<https://x>` and Linkify-detected bare
+//     URLs) are emitted as `[url](url)` — Slack's markdown block docs
+//     only list `[text](url)` as supported link syntax.
+//   - URLs in `[text](url)` / `![alt](url)` pass through verbatim; URL
+//     bytes are parser-bounded by `()` and never need escaping.
+//   - Code spans and fenced code blocks emit their content RAW;
+//     CommonMark treats code as literal, so broadcast tokens inside code
+//     are not interpreted.
+//
+// Options.AllowBroadcasts bypasses the broadcast escape entirely.
+// Options.PreserveMentionTokens lets the four trusted Slack token shapes
+// (`<@U…>`, `<#C…>`, `<!subteam^S…>`, `<!date^…|fb>`) pass through while
+// catastrophic broadcasts (`<!channel>` / `<!here>` / `<!everyone>`)
+// still escape.
+//
+// The 12,000-char ceiling is enforced on the EMITTED text, not on the
+// input — the walker can shrink (Slack URL-form `<URL|label>` becomes
+// shorter `[label](URL)`) or grow (autolink `<url>` becomes longer
+// `[url](url)`).
+func (r *Renderer) emitMarkdownBlock(root ast.Node, src []byte) ([]slack.Block, error) {
+	textOut := emitMarkdownBlockText(root, src, r.opts)
+	if len(textOut) > MaxMarkdownBlockSum {
+		return nil, fmt.Errorf("%w: %d chars", ErrMarkdownBlockTooLarge, len(textOut))
 	}
 	// blockID on a markdown block is per Slack docs "ignored… and will not
 	// be retained" — pass the empty string and let slack.NewMarkdownBlock
 	// omit the field via omitempty.
-	mb := slack.NewMarkdownBlock("", safe)
-	return []slack.Block{mb}, nil
+	return []slack.Block{slack.NewMarkdownBlock("", textOut)}, nil
 }
 
 // shouldUseMarkdownBlock implements the auto-mode picker.

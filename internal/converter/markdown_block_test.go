@@ -60,9 +60,9 @@ func TestMarkdownBlock_ExplicitMode_OverLimitReturnsError(t *testing.T) {
 }
 
 func TestMarkdownBlock_ExplicitMode_EscapesAngleBrackets(t *testing.T) {
-	// Even in markdown_block mode, raw `<!channel>` should not pass
-	// through (would broadcast). Step 11 will replace this with a more
-	// nuanced policy; for now the basic escape is the safety net.
+	// Catastrophic broadcasts must never pass through unescaped — the
+	// AST walker's text handler routes through entityEscape /
+	// escapePreservingTokens so `<!channel>` becomes `&lt;!channel&gt;`.
 	r, err := New(Options{Mode: ModeMarkdownBlock})
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -73,10 +73,153 @@ func TestMarkdownBlock_ExplicitMode_EscapesAngleBrackets(t *testing.T) {
 	}
 	mb := firstMarkdownBlock(t, blocks)
 	if strings.Contains(mb.Text, "<!channel>") {
-		t.Errorf("raw <!channel> survived basic escape: %q", mb.Text)
+		t.Errorf("raw <!channel> survived entity escape: %q", mb.Text)
 	}
 	if !strings.Contains(mb.Text, "&lt;!channel&gt;") {
 		t.Errorf("expected entity-escaped form, got %q", mb.Text)
+	}
+}
+
+// --- End-to-end link-shape coverage -----------------------------------------
+//
+// These tests run through Renderer.Convert in ModeMarkdownBlock so they
+// exercise the full pipeline: rewriteSlackURLForms → goldmark parse →
+// emitMarkdownBlockText → MarkdownBlock. They guard against regressions
+// in the four user-reported defects (see plan F2).
+
+func TestMarkdownBlock_AutolinksConvertedToBracketForm(t *testing.T) {
+	r, err := New(Options{Mode: ModeMarkdownBlock})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "URL autolink (defect 1)",
+			in:   "<https://example.com>",
+			want: "[https://example.com](https://example.com)",
+		},
+		{
+			name: "email autolink (defect 2)",
+			in:   "<user@example.com>",
+			want: "[user@example.com](mailto:user@example.com)",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			blocks, err := r.Convert(tc.in)
+			if err != nil {
+				t.Fatalf("Convert: %v", err)
+			}
+			mb := firstMarkdownBlock(t, blocks)
+			if mb.Text != tc.want {
+				t.Errorf("Convert(%q).Text = %q, want %q", tc.in, mb.Text, tc.want)
+			}
+			if strings.Contains(mb.Text, "&lt;") {
+				t.Errorf("autolink output should not contain entity-escaped `<`: %q", mb.Text)
+			}
+		})
+	}
+}
+
+func TestMarkdownBlock_BareURLsLinkified(t *testing.T) {
+	// Defect 4: Slack's markdown block follows CommonMark, which doesn't
+	// auto-linkify bare URLs. The emitter promotes goldmark's
+	// Linkify-detected AutoLink nodes to documented `[url](url)` syntax.
+	r, err := New(Options{Mode: ModeMarkdownBlock})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	blocks, err := r.Convert("Check out https://example.com today")
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	mb := firstMarkdownBlock(t, blocks)
+	want := "Check out [https://example.com](https://example.com) today"
+	if mb.Text != want {
+		t.Errorf("bare-URL linkification:\n got %q\nwant %q", mb.Text, want)
+	}
+}
+
+func TestMarkdownBlock_SlackURLForm_RewrittenToCommonMark(t *testing.T) {
+	// Defect 3: the user's reported example. The pre-parse rewriter
+	// converts `<URL|label>` to `[label](URL)` so both Slack's markdown
+	// block and goldmark agree on the syntax.
+	r, err := New(Options{Mode: ModeMarkdownBlock})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	in := "<https://docs.google.com/spreadsheets/d/1m%7CfaCRBkq1nWJQ2leb8Y/edit|Refa UGC v3 shared-drive>"
+	want := "[Refa UGC v3 shared-drive](https://docs.google.com/spreadsheets/d/1m%7CfaCRBkq1nWJQ2leb8Y/edit)"
+	blocks, err := r.Convert(in)
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	mb := firstMarkdownBlock(t, blocks)
+	if mb.Text != want {
+		t.Errorf("Slack URL-form rewrite:\n got %q\nwant %q", mb.Text, want)
+	}
+	if strings.Contains(mb.Text, "&lt;") {
+		t.Errorf("rewritten link should not contain entity-escaped `<`: %q", mb.Text)
+	}
+}
+
+func TestMarkdownBlock_LinkWithTitle_TitlePreserved(t *testing.T) {
+	r, err := New(Options{Mode: ModeMarkdownBlock})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	blocks, err := r.Convert(`[text](https://x.com "tooltip")`)
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	mb := firstMarkdownBlock(t, blocks)
+	want := `[text](https://x.com "tooltip")`
+	if mb.Text != want {
+		t.Errorf("title attribute:\n got %q\nwant %q", mb.Text, want)
+	}
+}
+
+func TestMarkdownBlock_AutolinkInsideCodeSpan_NotRewritten(t *testing.T) {
+	// Inside a code span, `<https://x.com>` is literal — neither the
+	// pre-parse Slack-URL-form rewriter nor the walker's AutoLink
+	// handler should touch it. Goldmark already parses it as Text
+	// inside a CodeSpan, so the walker takes the literal path.
+	r, err := New(Options{Mode: ModeMarkdownBlock})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	in := "use `<https://example.com>` syntax"
+	want := "use `<https://example.com>` syntax"
+	blocks, err := r.Convert(in)
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	mb := firstMarkdownBlock(t, blocks)
+	if mb.Text != want {
+		t.Errorf("code-span literal preservation:\n got %q\nwant %q", mb.Text, want)
+	}
+}
+
+func TestMarkdownBlock_URLWithAmpersand_Preserved(t *testing.T) {
+	// URL bytes inside `(...)` pass through verbatim; only the link
+	// text (which is `[here|escaped]`) goes through the sanitizer.
+	r, err := New(Options{Mode: ModeMarkdownBlock})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	in := "[click](https://x.com?a=1&b=2)"
+	want := "[click](https://x.com?a=1&b=2)"
+	blocks, err := r.Convert(in)
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	mb := firstMarkdownBlock(t, blocks)
+	if mb.Text != want {
+		t.Errorf("URL ampersand:\n got %q\nwant %q", mb.Text, want)
 	}
 }
 

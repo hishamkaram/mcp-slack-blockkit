@@ -101,23 +101,30 @@ func (r *Renderer) ConvertWithWarnings(input string) ([]slack.Block, []string, e
 		return []slack.Block{}, nil, nil
 	}
 
-	// ModeMarkdownBlock skips the AST walk entirely — we hand the raw
-	// (sanitized) input to Slack's markdown block parser.
-	if r.opts.Mode == ModeMarkdownBlock {
-		blocks, err := r.emitMarkdownBlock(input)
-		return blocks, nil, err
-	}
+	// Pre-parse rewrite: convert Slack mrkdwn URL-form `<URL|label>` into
+	// CommonMark `[label](URL)` so both modes can handle it via the
+	// regular Link path. Idempotent on inputs that don't contain the
+	// pattern. See internal/converter/slack_mrkdwn_links.go.
+	input = rewriteSlackURLForms(input)
 
+	// Parse once, then dispatch on mode. Previously ModeMarkdownBlock
+	// short-circuited before the parse; now the markdown_block emitter is
+	// AST-driven and needs the AST, so the parse runs unconditionally.
 	src := []byte(input)
 	root := r.gm.Parser().Parse(text.NewReader(src))
 	if root == nil {
 		return nil, nil, fmt.Errorf("converter: goldmark returned nil AST for input of %d bytes", len(input))
 	}
 
+	if r.opts.Mode == ModeMarkdownBlock {
+		blocks, err := r.emitMarkdownBlock(root, src)
+		return blocks, nil, err
+	}
+
 	var warnings []string
 	if r.opts.Mode == ModeAuto {
 		if r.shouldUseMarkdownBlock(input, root) {
-			blocks, err := r.emitMarkdownBlock(input)
+			blocks, err := r.emitMarkdownBlock(root, src)
 			return blocks, nil, err
 		}
 		// Picker said no. If the reason was a nested-block pattern (the

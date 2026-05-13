@@ -39,12 +39,38 @@ The pipeline order in `renderInlinesWithOpts`:
 ```
 
 **For the markdown_block path** (`emitMarkdownBlock` in
-`markdown_block.go`), the same `entityEscape` runs over the input
-unless `AllowBroadcasts` is true. When `PreserveMentionTokens` is true
-the path uses `escapePreservingTokens` instead: trusted-token spans
-pass through verbatim, everything else still escapes. Don't
-reintroduce the old `basicEscapeForMarkdownBlock` stub — it was
-deleted in step 11 in favor of the unified sanitizer.
+`markdown_block.go`), emission is **AST-driven** via
+`emitMarkdownBlockText` (`markdown_block_emit.go`). The walker re-emits
+each AST node as Slack-supported CommonMark and applies escaping per
+node type:
+
+- **Text/String content** (paragraphs, headings, list items, table
+  cells, blockquote text, link text) is HTML-entity-escaped by the
+  walker's `writeEscapedText` helper. When `PreserveMentionTokens` is
+  true, it calls `escapePreservingTokens` instead (trusted-token spans
+  pass through, everything else escapes). When `AllowBroadcasts` is
+  true, no escape is applied. Consecutive Text/String siblings are
+  coalesced before escaping so trusted-token detection survives
+  goldmark's text fragmentation at `<` characters.
+- **URL bytes** in `[text](url)`, `[url](url)` (from autolinks), and
+  `![alt](url)` are emitted verbatim. URLs are parser-bounded by `(...)`
+  and never need entity escaping; the browser/Slack handle any `&` in
+  the URL at render time.
+- **Code spans and fenced code blocks** emit content RAW (no escape).
+  CommonMark treats code as literal — broadcast tokens inside backticks
+  are not interpreted by Slack.
+- **Slack mrkdwn URL-form `<URL|label>`** is rewritten to CommonMark
+  `[label](URL)` by `rewriteSlackURLForms` in
+  `slack_mrkdwn_links.go` BEFORE goldmark parses, so both the rich_text
+  and markdown_block paths see a regular Link node. The rewriter's
+  regex starts with a URI scheme (`[a-zA-Z]…:`), so it cannot match
+  `<!channel>`, `<@U…>`, `<#C…>`, or `<!subteam^…>` — those still flow
+  through the text-escape layer above.
+
+Don't reintroduce the old blanket `entityEscape` over the raw input —
+it destroyed CommonMark autolink syntax (`<https://x.com>` became
+literal `&lt;https://x.com&gt;` text in Slack's renderer). The AST
+walker emits a documented `[url](url)` form instead.
 
 ## PreserveMentionTokens — the safer escape hatch
 
