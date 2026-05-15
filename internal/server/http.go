@@ -95,6 +95,14 @@ func (s *Server) runHTTPLike(
 		}
 	})
 
+	if opts.Token == "" && !isLoopbackBind(addr) {
+		slog.WarnContext(ctx,
+			"mcp server bound to a non-loopback address with no bearer token: "+
+				"anyone who can reach this address can drive the server; "+
+				"set a token (--http-token / HTTPOptions.Token) or bind to localhost",
+			"transport", transport, "addr", addr)
+	}
+
 	slog.InfoContext(
 		ctx, "starting mcp server",
 		"transport", transport,
@@ -162,6 +170,28 @@ func bearerAuth(next http.Handler, token string) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// isLoopbackBind reports whether addr binds only to a loopback interface.
+// A host of "localhost", a 127.0.0.0/8 address, or "::1" is loopback. An
+// empty host (e.g. ":7777") binds every interface and is NOT loopback;
+// neither is 0.0.0.0 or a routable IP. A malformed addr is treated as
+// non-loopback so the warning errs on the side of caution.
+func isLoopbackBind(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	switch host {
+	case "":
+		return false
+	case "localhost":
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // extractBearer returns the token portion of a "Bearer <token>" header.

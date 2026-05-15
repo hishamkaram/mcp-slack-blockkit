@@ -35,6 +35,7 @@ func (s *Server) registerPreviewTool() {
 				"No Slack credentials required; the URL is shareable across " +
 				"workspaces. Reports byte_size and a truncated flag for payloads " +
 				"that exceed the ~8KB practical browser limit.",
+			Annotations: readOnlyToolAnnotations("Preview Block Kit"),
 		},
 		s.handlePreview,
 	)

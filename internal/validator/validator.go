@@ -6,11 +6,16 @@
 // the LLM or human user.
 //
 // Hand-rolled rather than go-playground/validator with shadow structs:
-// the constraint set is small enough (about 30 rules across 10 block
-// types) that the indirection of mirror types + struct tags adds more
+// the constraint set is small (roughly 30 rules — 4 cross-block plus
+// per-block checks for section, header, image, actions/buttons, context,
+// and table) so the indirection of mirror types + struct tags adds more
 // reading cost than the validator engine saves. Research.md §5
 // recommended the hybrid path; in practice the hand-rolled approach is
-// ~150 lines for the same coverage with no external dep.
+// compact and has no external dep.
+//
+// rich_text, divider, file, and video blocks carry no documented
+// per-string limits beyond block_id, so they are checked only by the
+// shared block_id rule.
 package validator
 
 import (
@@ -24,19 +29,48 @@ import (
 // lint tool can reference the same constants. Sourced from research.md §3.
 const (
 	MaxBlocksPerMessage  = 50
+	MaxBlocksPerModal    = 100
 	MaxSectionTextChars  = 3000
 	MaxSectionFieldsLen  = 2000
 	MaxSectionFieldCount = 10
 	MaxHeaderTextChars   = 150
 	MaxBlockIDChars      = 255
+	MaxActionIDChars     = 255
 	MaxButtonTextChars   = 75
 	MaxButtonValueChars  = 2000
 	MaxButtonURLChars    = 3000
 	MaxImageAltTextChars = 2000
 	MaxImageURLChars     = 3000
+	MaxImageTitleChars   = 2000
 	MaxActionsElements   = 25
+	MaxContextElements   = 10
+	MaxTableRows         = 100
+	MaxTableColumns      = 20
 	MaxMarkdownTotal     = 12000
 )
+
+// Surface identifies the Slack surface a block payload targets. The
+// per-message block ceiling differs by surface: chat messages allow 50
+// blocks, while modals and App Home tabs allow 100. Every other rule in
+// the suite is surface-independent.
+type Surface string
+
+const (
+	SurfaceMessage Surface = "message"
+	SurfaceModal   Surface = "modal"
+	SurfaceHomeTab Surface = "home"
+)
+
+// MaxBlocks returns the block ceiling for the surface. Unknown or empty
+// surfaces fall back to the most conservative (message) limit.
+func (s Surface) MaxBlocks() int {
+	switch s {
+	case SurfaceModal, SurfaceHomeTab:
+		return MaxBlocksPerModal
+	default:
+		return MaxBlocksPerMessage
+	}
+}
 
 // Severity classifies a violation. Errors must be fixed before send;
 // Warnings indicate usage that may be problematic but is technically
@@ -88,9 +122,21 @@ func NewStrict() *Validator {
 	return &Validator{strict: true}
 }
 
-// Validate runs the full constraint suite over the block list and returns
-// a structured Result.
+// Validate runs the full constraint suite over the block list, treating
+// the payload as a chat message (50-block ceiling). Use ValidateForSurface
+// to validate against a modal or App Home tab (100-block ceiling).
 func (v *Validator) Validate(blocks []slack.Block) Result {
+	return v.ValidateForSurface(blocks, SurfaceMessage)
+}
+
+// ValidateForSurface runs the full constraint suite, applying the
+// block-count ceiling for the given Slack surface. An empty or unknown
+// surface is treated as a message (the most conservative limit). All
+// other rules are surface-independent.
+func (v *Validator) ValidateForSurface(blocks []slack.Block, surface Surface) Result {
+	if surface == "" {
+		surface = SurfaceMessage
+	}
 	var errs, warns []Violation
 
 	add := func(sev Severity, path, code, msg, fix string) {
@@ -102,10 +148,11 @@ func (v *Validator) Validate(blocks []slack.Block) Result {
 		}
 	}
 
-	// Rule 1 (cross-block): max blocks per message.
-	if len(blocks) > MaxBlocksPerMessage {
+	// Rule 1 (cross-block): max blocks for the target surface.
+	if maxBlocks := surface.MaxBlocks(); len(blocks) > maxBlocks {
 		add(SeverityError, "blocks", "blocks_per_message_exceeded",
-			fmt.Sprintf("message has %d blocks; Slack maximum is %d", len(blocks), MaxBlocksPerMessage),
+			fmt.Sprintf("payload has %d blocks; Slack maximum for the %s surface is %d",
+				len(blocks), surface, maxBlocks),
 			"split the payload into multiple messages, or use the split_blocks tool")
 	}
 
@@ -192,13 +239,18 @@ func (v *Validator) validateBlock(b slack.Block, path string, errs, warns *[]Vio
 		v.validateImage(t, path, add)
 	case *slack.ActionBlock:
 		v.validateActions(t, path, add)
+	case *slack.ContextBlock:
+		v.validateContext(t, path, add)
+	case *slack.TableBlock:
+		v.validateTable(t, path, add)
 	case *slack.MarkdownBlock:
 		// Per-block markdown text length is enforced by the cumulative
 		// rule above; nothing additional to check per-block.
-	case *slack.DividerBlock, *slack.RichTextBlock, *slack.TableBlock,
-		*slack.ContextBlock, *slack.FileBlock, *slack.VideoBlock:
-		// These have constraints we surface via their nested objects
-		// (RichTextBlock has no documented per-string limit per §3).
+	case *slack.DividerBlock, *slack.RichTextBlock,
+		*slack.FileBlock, *slack.VideoBlock:
+		// DividerBlock has no constraints. RichTextBlock has no documented
+		// per-string limit (Slack docs only specify block_id, checked
+		// above). File/Video blocks are outside this converter's scope.
 	}
 }
 
@@ -244,6 +296,10 @@ func (v *Validator) validateSection(s *slack.SectionBlock, path string, add func
 				"shorten the field text")
 		}
 	}
+
+	if s.Accessory != nil {
+		validateAccessory(s.Accessory, path+".accessory", add)
+	}
 }
 
 func (v *Validator) validateHeader(h *slack.HeaderBlock, path string, add func(Severity, string, string, string, string)) {
@@ -288,6 +344,13 @@ func (v *Validator) validateImage(img *slack.ImageBlock, path string, add func(S
 			fmt.Sprintf("image_url is %d chars; max %d", l, MaxImageURLChars),
 			"use a shorter URL or upload the image to Slack as a file")
 	}
+	if img.Title != nil {
+		if l := len(img.Title.Text); l > MaxImageTitleChars {
+			add(SeverityError, path+".title.text", "image_title_too_long",
+				fmt.Sprintf("image title is %d chars; max %d", l, MaxImageTitleChars),
+				"shorten the image title")
+		}
+	}
 }
 
 func (v *Validator) validateActions(a *slack.ActionBlock, path string, add func(Severity, string, string, string, string)) {
@@ -298,6 +361,88 @@ func (v *Validator) validateActions(a *slack.ActionBlock, path string, add func(
 		add(SeverityError, path+".elements", "too_many_actions",
 			fmt.Sprintf("actions block has %d elements; max %d", n, MaxActionsElements),
 			"split the actions across multiple actions blocks")
+	}
+	for j, el := range a.Elements.ElementSet {
+		if btn, ok := el.(*slack.ButtonBlockElement); ok {
+			validateButton(btn, path+".elements["+strconv.Itoa(j)+"]", add)
+		}
+	}
+}
+
+// validateContext checks a context block's element count. Slack allows at
+// most 10 image elements / text objects per context block.
+func (v *Validator) validateContext(c *slack.ContextBlock, path string, add func(Severity, string, string, string, string)) {
+	if n := len(c.ContextElements.Elements); n > MaxContextElements {
+		add(SeverityError, path+".elements", "too_many_context_elements",
+			fmt.Sprintf("context block has %d elements; max %d", n, MaxContextElements),
+			"reduce the number of context elements")
+	}
+}
+
+// validateTable checks a table block against Slack's row/column ceilings:
+// at most 100 rows, 20 cells per row, and 20 column_settings entries.
+func (v *Validator) validateTable(t *slack.TableBlock, path string, add func(Severity, string, string, string, string)) {
+	if n := len(t.Rows); n > MaxTableRows {
+		add(SeverityError, path+".rows", "too_many_table_rows",
+			fmt.Sprintf("table has %d rows; max %d", n, MaxTableRows),
+			"reduce the number of rows or split the data across messages")
+	}
+	for r, row := range t.Rows {
+		if n := len(row); n > MaxTableColumns {
+			add(SeverityError, path+".rows["+strconv.Itoa(r)+"]", "too_many_table_columns",
+				fmt.Sprintf("table row %d has %d cells; max %d", r, n, MaxTableColumns),
+				"reduce the number of columns")
+		}
+	}
+	if n := len(t.ColumnSettings); n > MaxTableColumns {
+		add(SeverityError, path+".column_settings", "too_many_column_settings",
+			fmt.Sprintf("table has %d column_settings; max %d", n, MaxTableColumns),
+			"column_settings entries must not exceed the column count")
+	}
+}
+
+// validateButton checks one button element against Slack's per-field
+// character limits. Shared by actions-block elements and section
+// accessories (both surface the same button shape).
+func validateButton(btn *slack.ButtonBlockElement, path string, add func(Severity, string, string, string, string)) {
+	if btn.Text != nil {
+		if l := len(btn.Text.Text); l > MaxButtonTextChars {
+			add(SeverityError, path+".text.text", "button_text_too_long",
+				fmt.Sprintf("button text is %d chars; max %d", l, MaxButtonTextChars),
+				"shorten the button label")
+		}
+	}
+	if l := len(btn.Value); l > MaxButtonValueChars {
+		add(SeverityError, path+".value", "button_value_too_long",
+			fmt.Sprintf("button value is %d chars; max %d", l, MaxButtonValueChars),
+			"shorten the button value payload")
+	}
+	if l := len(btn.URL); l > MaxButtonURLChars {
+		add(SeverityError, path+".url", "button_url_too_long",
+			fmt.Sprintf("button url is %d chars; max %d", l, MaxButtonURLChars),
+			"use a shorter URL")
+	}
+	if l := len(btn.ActionID); l > MaxActionIDChars {
+		add(SeverityError, path+".action_id", "action_id_too_long",
+			fmt.Sprintf("action_id is %d chars; max %d", l, MaxActionIDChars),
+			"shorten the action_id")
+	}
+}
+
+// validateAccessory checks a section block's accessory. Only the element
+// types this converter can plausibly receive carry character limits worth
+// surfacing here (image alt_text, button fields); other accessory types
+// pass without comment.
+func validateAccessory(acc *slack.Accessory, path string, add func(Severity, string, string, string, string)) {
+	switch {
+	case acc.ImageElement != nil:
+		if l := len(acc.ImageElement.AltText); l > MaxImageAltTextChars {
+			add(SeverityError, path+".alt_text", "alt_text_too_long",
+				fmt.Sprintf("accessory image alt_text is %d chars; max %d", l, MaxImageAltTextChars),
+				"shorten the alt text")
+		}
+	case acc.ButtonElement != nil:
+		validateButton(acc.ButtonElement, path, add)
 	}
 }
 

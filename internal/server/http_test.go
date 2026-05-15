@@ -342,6 +342,29 @@ func (b bearerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 
 // --- Bearer middleware unit tests (no transport) --------------------------
 
+func TestIsLoopbackBind(t *testing.T) {
+	cases := []struct {
+		addr string
+		want bool
+	}{
+		{"127.0.0.1:7777", true},
+		{"localhost:7777", true},
+		{"[::1]:7777", true},
+		{"127.0.0.5:80", true},
+		{":7777", false},
+		{"0.0.0.0:7777", false},
+		{"192.168.1.10:7777", false},
+		{"example.com:7777", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.addr, func(t *testing.T) {
+			if got := isLoopbackBind(tc.addr); got != tc.want {
+				t.Errorf("isLoopbackBind(%q) = %v, want %v", tc.addr, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestBearerAuth_ConstantTimeCompare_LengthMismatch_Rejected(t *testing.T) {
 	// A length mismatch must NOT short-circuit and leak timing — but the
 	// reject path is the same as a content mismatch (401). We're really

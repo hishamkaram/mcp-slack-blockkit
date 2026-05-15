@@ -31,31 +31,48 @@ jobs:
       - name: Coverage report
         run: go tool cover -func=cover.out
 
-      - name: Coverage gate (≥80% on listed packages)
-        # Per research.md §8 mandate: block_kit + the four conversion-engine
-        # packages must hit at least 80% statement coverage. Other packages
-        # are advisory.
+      - name: Coverage gate (≥80% per package + overall)
+        # block_kit + the conversion-engine packages must each hit at least
+        # 80% statement coverage, and so must the overall figure. Per-package
+        # coverage is computed directly from the merged cover profile
+        # (count covered vs total statements, grouped by package dir) — the
+        # `go tool cover -func` output has no per-package total line.
         run: |
           set -euo pipefail
+          awk 'NR==1{next} {
+            split($1,a,":"); file=a[1];
+            n=split(file,p,"/"); dir=p[1];
+            for (i=2;i<n;i++) dir=dir"/"p[i];
+            tot[dir]+=$2; if ($3+0>0) cov[dir]+=$2
+          } END { for (d in tot) printf "%s %.1f\n", d, 100*cov[d]/tot[d] }' cover.out \
+            | sort > pkgcov.txt
+          cat pkgcov.txt
+          fail=0
           for pkg in \
             github.com/hishamkaram/mcp-slack-block-kit/block_kit \
             github.com/hishamkaram/mcp-slack-block-kit/internal/converter \
+            github.com/hishamkaram/mcp-slack-block-kit/internal/reverse \
             github.com/hishamkaram/mcp-slack-block-kit/internal/validator \
             github.com/hishamkaram/mcp-slack-block-kit/internal/splitter \
             github.com/hishamkaram/mcp-slack-block-kit/internal/preview \
           ; do
-            line=$(go tool cover -func=cover.out | awk -v p="$pkg/" '$1 ~ p && $1 ~ /total:|\.go/' | grep -E "^${pkg}/[a-z_]+\.go" | awk '{ sum += $NF; n++ } END { if (n) printf "%.1f", sum/n; else print "0" }') || line=0
-            # Fallback: use the per-file coverage average. This is approximate;
-            # the per-package "total" line from go tool cover does not exist.
-            echo "$pkg average per-file coverage: ${line}%"
+            pct=$(awk -v p="$pkg" '$1==p {print $2}' pkgcov.txt)
+            pct=${pct:-0}
+            if awk -v t="$pct" 'BEGIN { exit (t+0 >= 80 ? 0 : 1) }'; then
+              echo "OK:   $pkg ${pct}%"
+            else
+              echo "FAIL: $pkg coverage ${pct}% is below the 80% gate"
+              fail=1
+            fi
           done
-          # Hard total gate from the overall percentage.
           total=$(go tool cover -func=cover.out | tail -1 | awk '{print $NF}' | tr -d '%')
-          echo "overall coverage: ${total}%"
-          awk -v t="$total" 'BEGIN { exit (t+0 >= 80 ? 0 : 1) }' || {
+          if awk -v t="$total" 'BEGIN { exit (t+0 >= 80 ? 0 : 1) }'; then
+            echo "OK:   overall ${total}%"
+          else
             echo "FAIL: overall coverage ${total}% is below the 80% gate"
-            exit 1
-          }
+            fail=1
+          fi
+          exit $fail
 
   lint:
     runs-on: ubuntu-latest

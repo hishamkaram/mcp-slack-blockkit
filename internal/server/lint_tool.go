@@ -17,6 +17,7 @@ type LintInput struct {
 	Blocks     any        `json:"blocks,omitempty" jsonschema:"array of Slack Block Kit blocks to lint"`
 	Payload    any        `json:"payload,omitempty" jsonschema:"alternative form: a full chat.postMessage payload object"`
 	Thresholds Thresholds `json:"thresholds,omitempty" jsonschema:"thresholds for near-limit warnings (default 90% of each Slack constraint)"`
+	Surface    string     `json:"surface,omitempty" jsonschema:"target Slack surface, which sets the block-count ceiling: message (default, 50 blocks), modal, or home (both 100 blocks)"`
 }
 
 // Thresholds expresses the percentage of a constraint that triggers a
@@ -58,7 +59,10 @@ func (s *Server) registerLintTool() {
 				"never returns errors, only warnings — so it's safe to call on a " +
 				"payload that is technically valid but might benefit from " +
 				"adjustment. Configurable thresholds (default 90% of each Slack " +
-				"limit). Use validate_block_kit for hard correctness checks.",
+				"limit). Set surface to modal or home for the 100-block ceiling " +
+				"(default message: 50 blocks). Use validate_block_kit for hard " +
+				"correctness checks.",
+			Annotations: readOnlyToolAnnotations("Lint Block Kit"),
 		},
 		s.handleLint,
 	)
@@ -69,12 +73,16 @@ func (s *Server) handleLint(_ context.Context, _ *mcp.CallToolRequest, in LintIn
 	if err != nil {
 		return errorResult("invalid input: " + err.Error()), LintOutput{}, nil
 	}
+	surface, err := parseSurface(in.Surface)
+	if err != nil {
+		return errorResult("invalid input: " + err.Error()), LintOutput{}, nil
+	}
 
 	t := normalizeThresholds(in.Thresholds)
 	out := LintOutput{}
 
 	// 1. Surface every validator warning as-is (e.g. missing alt_text).
-	r := validator.New().Validate(blocks)
+	r := validator.New().ValidateForSurface(blocks, surface)
 	for _, w := range r.Warnings {
 		out.Findings = append(out.Findings, Finding{
 			Severity: string(w.Severity),
@@ -85,14 +93,17 @@ func (s *Server) handleLint(_ context.Context, _ *mcp.CallToolRequest, in LintIn
 		})
 	}
 
-	// 2. Near-limit checks at the cross-block level.
-	if pct := percentOf(len(blocks), validator.MaxBlocksPerMessage); pct >= t.BlocksPct {
+	// 2. Near-limit checks at the cross-block level. The block ceiling
+	//    depends on the target surface (50 for messages, 100 for modals
+	//    and home tabs).
+	maxBlocks := surface.MaxBlocks()
+	if pct := percentOf(len(blocks), maxBlocks); pct >= t.BlocksPct {
 		out.Findings = append(out.Findings, Finding{
 			Severity: "warning",
 			Path:     "blocks",
 			Code:     "blocks_near_limit",
-			Message: fmt.Sprintf("%d blocks (%d%% of Slack's %d-block per-message limit)",
-				len(blocks), pct, validator.MaxBlocksPerMessage),
+			Message: fmt.Sprintf("%d blocks (%d%% of Slack's %d-block %s limit)",
+				len(blocks), pct, maxBlocks, surface),
 			FixHint: "consider splitting into multiple messages with split_blocks",
 		})
 	}

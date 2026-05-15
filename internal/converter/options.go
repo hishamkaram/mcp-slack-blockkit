@@ -33,17 +33,23 @@ const (
 // downstream callers can reference them without re-deriving the numbers.
 // Sources are in research.md §3.
 const (
-	MaxBlocksPerMessage  = 50
-	MaxSectionTextChars  = 3000
-	MaxHeaderTextChars   = 150
-	MaxMarkdownBlockSum  = 12000
-	MaxBlockIDChars      = 255
-	DefaultMaxInputBytes = 256 * 1024 // 256 KiB
+	MaxBlocksPerMessage    = 50
+	MaxSectionTextChars    = 3000
+	MaxHeaderTextChars     = 150
+	MaxMarkdownBlockSum    = 12000
+	MaxBlockIDChars        = 255
+	DefaultMaxInputBytes   = 256 * 1024 // 256 KiB
+	DefaultMaxNestingDepth = 100        // AST-depth ceiling; see Options.MaxNestingDepth
 )
 
 // ErrInputTooLarge is returned when input exceeds Options.MaxInputBytes.
 // We expose it as a sentinel so MCP handlers can map it to a structured error.
 var ErrInputTooLarge = errors.New("input exceeds configured maximum size")
+
+// ErrInputTooDeeplyNested is returned when the parsed markdown AST nests
+// deeper than Options.MaxNestingDepth. Exposed as a sentinel so MCP
+// handlers can map it to a structured error.
+var ErrInputTooDeeplyNested = errors.New("input nests deeper than configured maximum")
 
 // Options configures a Renderer. All fields have sane defaults via DefaultOptions;
 // callers typically start with that and tweak individual fields.
@@ -108,6 +114,16 @@ type Options struct {
 	// EnableTables controls whether the GFM tables extension is honored.
 	// Default true. Set false to make tables fall through as raw text.
 	EnableTables bool
+
+	// MaxNestingDepth bounds the depth of the parsed markdown AST. Zero
+	// means "use the default of 100". MaxInputBytes bounds the byte count
+	// but not the structural depth — a small payload of repeated `> `
+	// prefixes can nest thousands of blockquotes deep, which would drive
+	// the converter's recursive block/inline walkers (and the
+	// markdown_block emitter) into pathologically deep recursion. Inputs
+	// past this ceiling are rejected with ErrInputTooDeeplyNested. Real
+	// content never approaches 100 levels.
+	MaxNestingDepth int
 }
 
 // DefaultOptions returns Options with the recommended defaults applied.
@@ -123,6 +139,7 @@ func DefaultOptions() Options {
 		PreserveMentionTokens:      false,
 		MentionMap:                 nil,
 		EnableTables:               true,
+		MaxNestingDepth:            DefaultMaxNestingDepth,
 	}
 }
 
@@ -166,6 +183,12 @@ func (o *Options) validate() error {
 		// Reserve 8 chars for the sequence suffix we append.
 		return fmt.Errorf("converter: BlockIDPrefix length %d leaves no room for sequence suffix",
 			len(o.BlockIDPrefix))
+	}
+	if o.MaxNestingDepth < 0 {
+		return fmt.Errorf("converter: MaxNestingDepth=%d cannot be negative", o.MaxNestingDepth)
+	}
+	if o.MaxNestingDepth == 0 {
+		o.MaxNestingDepth = DefaultMaxNestingDepth
 	}
 	return nil
 }

@@ -58,6 +58,8 @@ func New(version string) (*Server, error) {
 		version:   version,
 	}
 	s.registerTools()
+	s.registerResources()
+	s.registerPrompts()
 	return s, nil
 }
 
@@ -86,4 +88,20 @@ func (s *Server) registerTools() {
 	s.registerPreviewTool()
 	s.registerLintTool()
 	s.registerSplitTool()
+	s.registerReverseTool()
 }
+
+// readOnlyToolAnnotations returns the MCP tool annotations shared by every
+// tool this server exposes. All of them are pure functions: they read the
+// caller's input and return a result without touching any external system
+// or mutating state. Surfacing ReadOnlyHint lets MCP clients reason about
+// the tool (e.g. auto-approve, cache, retry) without guessing.
+func readOnlyToolAnnotations(title string) *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{
+		Title:         title,
+		ReadOnlyHint:  true,
+		OpenWorldHint: boolPtr(false),
+	}
+}
+
+func boolPtr(b bool) *bool { return &b }

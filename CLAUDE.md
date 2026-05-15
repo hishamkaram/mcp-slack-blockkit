@@ -71,10 +71,11 @@ CI mirrors all of the above. Coverage gate: **≥80% overall, enforced in
 ```
 cmd/mcp-slack-block-kit/   cobra entry point (server default + convert subcommand)
 internal/converter/       goldmark renderer + emoji/mentions/markdown_block
+internal/reverse/         Block Kit → markdown (inverse of converter; lossy)
 internal/validator/       slack constraint suite + structured Violations
 internal/splitter/        SplitText + ChunkBlocks (50-block + table-isolation)
 internal/preview/         Block Kit Builder URL encoder
-internal/server/          MCP wiring (5 tools on top of go-sdk v1.6.0)
+internal/server/          MCP wiring (6 tools + cheatsheet resource + prompt)
 block_kit/                 Public Go library re-exports (semver-stable surface)
 docs/                     Public docs (CLAUDE-architecture.md, etc.)
 docs/internal/            Gitignored design notes (research.md lives here)

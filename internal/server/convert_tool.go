@@ -21,8 +21,8 @@ type ConvertInput struct {
 	AllowBroadcasts       bool              `json:"allow_broadcasts,omitempty" jsonschema:"if true, raw <!channel>/<!here>/<@U…> in input pass through unchanged (default false: entity-escaped for safety)"`
 	PreserveMentionTokens bool              `json:"preserve_mention_tokens,omitempty" jsonschema:"if true, already-typed Slack tokens (<@U…>, <#C…>, <!subteam^S…>, <!date^…|fb>) pass through as typed elements while catastrophic broadcasts (<!channel>/<!here>/<!everyone>) still escape; useful when the markdown comes from an upstream Slack tool result"`
 	MentionMap            map[string]string `json:"mention_map,omitempty" jsonschema:"map of bare @handle to Slack ID (U… user, C… channel, S… usergroup); resolved to typed mention elements"`
-	ReturnPreviewURL      bool              `json:"return_preview_url,omitempty" jsonschema:"if true (default), include the Block Kit Builder preview URL in the response"`
-	Split                 string            `json:"split,omitempty" jsonschema:"split strategy: none (default), or both — chunks the result on the >50-block axis"`
+	ReturnPreviewURL      *bool             `json:"return_preview_url,omitempty" jsonschema:"include the Block Kit Builder preview URL in the response; defaults to true when omitted, set false to skip it"`
+	Split                 string            `json:"split,omitempty" jsonschema:"split strategy: none (default), blocks, or both — chunks the result on the >50-block axis (blocks and both are equivalent)"`
 	BlockIDPrefix         string            `json:"block_id_prefix,omitempty" jsonschema:"optional prefix for generated block_id values; empty means no block_id is set"`
 }
 
@@ -53,12 +53,16 @@ func (s *Server) registerConvertTool() {
 				"Mention sanitization is on by default (raw <!channel>/<!here>/<@U…> " +
 				"are entity-escaped). Pass mention_map for safe @handle resolution. " +
 				"Optional preview_url returns a Block Kit Builder link for visual QA.",
+			Annotations: readOnlyToolAnnotations("Convert Markdown to Block Kit"),
 		},
 		s.handleConvert,
 	)
 }
 
 func (s *Server) handleConvert(_ context.Context, _ *mcp.CallToolRequest, in ConvertInput) (*mcp.CallToolResult, ConvertOutput, error) {
+	if err := validateSplitStrategy(in.Split); err != nil {
+		return errorResult("invalid input: " + err.Error()), ConvertOutput{}, nil
+	}
 	opts, err := convertInputToOptions(in)
 	if err != nil {
 		return errorResult("invalid input: " + err.Error()), ConvertOutput{}, nil
@@ -99,22 +103,35 @@ func (s *Server) handleConvert(_ context.Context, _ *mcp.CallToolRequest, in Con
 		}
 	}
 
-	// Preview URL is always produced. The schema documents
-	// `return_preview_url` as opt-in (default true), but Go can't
-	// distinguish a missing JSON bool from an explicit false on a
-	// non-pointer field — so we'd need to switch the input type to
-	// *bool to support strict opt-out. Until a caller asks for that,
-	// always-on is the simpler contract.
-	if pr, err := preview.BuilderURL(blocks); err == nil {
-		out.PreviewURL = pr.URL
-		out.PreviewSize = pr.ByteSize
-		if pr.Truncated {
-			out.Warnings = append(out.Warnings,
-				fmt.Sprintf("preview URL is %d bytes; may exceed practical browser/Slack limits (~8KB)", pr.ByteSize))
+	// Preview URL generation is opt-out: produced unless the caller
+	// explicitly passes return_preview_url=false. ReturnPreviewURL is a
+	// *bool so a missing field (nil) is distinguishable from an explicit
+	// false and still defaults to "include".
+	if in.ReturnPreviewURL == nil || *in.ReturnPreviewURL {
+		if pr, err := preview.BuilderURL(blocks); err == nil {
+			out.PreviewURL = pr.URL
+			out.PreviewSize = pr.ByteSize
+			if pr.Truncated {
+				out.Warnings = append(out.Warnings,
+					fmt.Sprintf("preview URL is %d bytes; may exceed practical browser/Slack limits (~8KB)", pr.ByteSize))
+			}
 		}
 	}
 
 	return nil, out, nil
+}
+
+// validateSplitStrategy rejects unknown `split` values up front so the
+// caller gets a clear error instead of a silent no-op. `blocks` and `both`
+// are equivalent (both chunk on the 50-block axis); `none`/empty disable
+// splitting.
+func validateSplitStrategy(s string) error {
+	switch s {
+	case "", "none", "blocks", "both":
+		return nil
+	default:
+		return fmt.Errorf("invalid split %q (want none, blocks, or both)", s)
+	}
 }
 
 // convertInputToOptions translates the MCP tool's input struct into a
