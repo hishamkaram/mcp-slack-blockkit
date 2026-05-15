@@ -34,6 +34,7 @@ func (s *Server) registerSplitTool() {
 				"only_one_table_allowed rule (a TableBlock always opens a new chunk " +
 				"when the current chunk already contains a table). Returns the " +
 				"original blocks unchanged when they fit in one chunk.",
+			Annotations: readOnlyToolAnnotations("Split Block Kit"),
 		},
 		s.handleSplit,
 	)

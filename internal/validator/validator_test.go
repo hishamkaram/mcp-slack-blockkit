@@ -27,6 +27,47 @@ func hasWarningWithCode(r Result, code string) bool {
 	return false
 }
 
+// --- Surface-aware block ceiling --------------------------------------------
+
+func TestValidateForSurface_ModalAllows100Blocks(t *testing.T) {
+	blocks := make([]slack.Block, MaxBlocksPerModal)
+	for i := range blocks {
+		blocks[i] = slack.NewDividerBlock()
+	}
+	// 100 blocks is over the 50-block message limit but within a modal's.
+	if r := New().Validate(blocks); r.Valid {
+		t.Error("100 blocks should be invalid for the default message surface")
+	}
+	if r := New().ValidateForSurface(blocks, SurfaceModal); !r.Valid {
+		t.Errorf("100 blocks should be valid for a modal; errors=%+v", r.Errors)
+	}
+	if r := New().ValidateForSurface(blocks, SurfaceHomeTab); !r.Valid {
+		t.Errorf("100 blocks should be valid for a home tab; errors=%+v", r.Errors)
+	}
+}
+
+func TestValidateForSurface_ModalOver100_Error(t *testing.T) {
+	blocks := make([]slack.Block, MaxBlocksPerModal+1)
+	for i := range blocks {
+		blocks[i] = slack.NewDividerBlock()
+	}
+	r := New().ValidateForSurface(blocks, SurfaceModal)
+	if !hasErrorWithCode(r, "blocks_per_message_exceeded") {
+		t.Errorf("101 blocks should exceed the modal ceiling; errors=%+v", r.Errors)
+	}
+}
+
+func TestValidateForSurface_EmptySurface_DefaultsToMessage(t *testing.T) {
+	blocks := make([]slack.Block, MaxBlocksPerMessage+1)
+	for i := range blocks {
+		blocks[i] = slack.NewDividerBlock()
+	}
+	r := New().ValidateForSurface(blocks, Surface(""))
+	if !hasErrorWithCode(r, "blocks_per_message_exceeded") {
+		t.Errorf("empty surface should fall back to the 50-block limit; errors=%+v", r.Errors)
+	}
+}
+
 // --- Cross-block rules ------------------------------------------------------
 
 func TestValidate_OverBlocksPerMessage_Error(t *testing.T) {
@@ -205,6 +246,172 @@ func TestValidate_ImageURLTooLong_Error(t *testing.T) {
 	r := New().Validate([]slack.Block{img})
 	if !hasErrorWithCode(r, "image_url_too_long") {
 		t.Errorf("missing image_url_too_long error; errors=%+v", r.Errors)
+	}
+}
+
+func TestValidate_ImageTitleTooLong_Error(t *testing.T) {
+	long := strings.Repeat("t", MaxImageTitleChars+1)
+	title := slack.NewTextBlockObject(slack.PlainTextType, long, false, false)
+	img := slack.NewImageBlock("https://example.com/x.png", "alt", "", title)
+	r := New().Validate([]slack.Block{img})
+	if !hasErrorWithCode(r, "image_title_too_long") {
+		t.Errorf("missing image_title_too_long error; errors=%+v", r.Errors)
+	}
+}
+
+// --- Actions / button validation --------------------------------------------
+
+func btnText(s string) *slack.TextBlockObject {
+	return slack.NewTextBlockObject(slack.PlainTextType, s, false, false)
+}
+
+func TestValidate_ActionsTooManyElements_Error(t *testing.T) {
+	els := make([]slack.BlockElement, MaxActionsElements+1)
+	for i := range els {
+		els[i] = &slack.ButtonBlockElement{Type: slack.METButton, Text: btnText("ok")}
+	}
+	a := slack.NewActionBlock("", els...)
+	r := New().Validate([]slack.Block{a})
+	if !hasErrorWithCode(r, "too_many_actions") {
+		t.Errorf("missing too_many_actions error; errors=%+v", r.Errors)
+	}
+}
+
+func TestValidate_ButtonFieldsTooLong_Error(t *testing.T) {
+	cases := []struct {
+		name string
+		btn  *slack.ButtonBlockElement
+		code string
+	}{
+		{
+			"text", &slack.ButtonBlockElement{
+				Type: slack.METButton,
+				Text: btnText(strings.Repeat("a", MaxButtonTextChars+1)),
+			}, "button_text_too_long",
+		},
+		{
+			"value", &slack.ButtonBlockElement{
+				Type: slack.METButton, Text: btnText("ok"),
+				Value: strings.Repeat("v", MaxButtonValueChars+1),
+			}, "button_value_too_long",
+		},
+		{
+			"url", &slack.ButtonBlockElement{
+				Type: slack.METButton, Text: btnText("ok"),
+				URL: strings.Repeat("u", MaxButtonURLChars+1),
+			}, "button_url_too_long",
+		},
+		{
+			"action_id", &slack.ButtonBlockElement{
+				Type: slack.METButton, Text: btnText("ok"),
+				ActionID: strings.Repeat("i", MaxActionIDChars+1),
+			}, "action_id_too_long",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := slack.NewActionBlock("", tc.btn)
+			r := New().Validate([]slack.Block{a})
+			if !hasErrorWithCode(r, tc.code) {
+				t.Errorf("missing %s error; errors=%+v", tc.code, r.Errors)
+			}
+		})
+	}
+}
+
+func TestValidate_ButtonWithinLimits_Valid(t *testing.T) {
+	a := slack.NewActionBlock("", &slack.ButtonBlockElement{
+		Type: slack.METButton, Text: btnText("Click me"), Value: "ok",
+	})
+	r := New().Validate([]slack.Block{a})
+	if !r.Valid {
+		t.Errorf("button within limits should validate; errors=%+v", r.Errors)
+	}
+}
+
+// --- Context validation -----------------------------------------------------
+
+func TestValidate_ContextTooManyElements_Error(t *testing.T) {
+	els := make([]slack.MixedElement, MaxContextElements+1)
+	for i := range els {
+		els[i] = slack.NewTextBlockObject(slack.MarkdownType, "x", false, false)
+	}
+	c := slack.NewContextBlock("", els...)
+	r := New().Validate([]slack.Block{c})
+	if !hasErrorWithCode(r, "too_many_context_elements") {
+		t.Errorf("missing too_many_context_elements error; errors=%+v", r.Errors)
+	}
+}
+
+// --- Table validation -------------------------------------------------------
+
+func TestValidate_TableTooManyRows_Error(t *testing.T) {
+	tbl := &slack.TableBlock{Rows: make([][]*slack.RichTextBlock, MaxTableRows+1)}
+	r := New().Validate([]slack.Block{tbl})
+	if !hasErrorWithCode(r, "too_many_table_rows") {
+		t.Errorf("missing too_many_table_rows error; errors=%+v", r.Errors)
+	}
+}
+
+func TestValidate_TableTooManyColumns_Error(t *testing.T) {
+	tbl := &slack.TableBlock{Rows: [][]*slack.RichTextBlock{
+		make([]*slack.RichTextBlock, MaxTableColumns+1),
+	}}
+	r := New().Validate([]slack.Block{tbl})
+	if !hasErrorWithCode(r, "too_many_table_columns") {
+		t.Errorf("missing too_many_table_columns error; errors=%+v", r.Errors)
+	}
+}
+
+func TestValidate_TableTooManyColumnSettings_Error(t *testing.T) {
+	tbl := &slack.TableBlock{
+		Rows:           [][]*slack.RichTextBlock{{}},
+		ColumnSettings: make([]slack.ColumnSetting, MaxTableColumns+1),
+	}
+	r := New().Validate([]slack.Block{tbl})
+	if !hasErrorWithCode(r, "too_many_column_settings") {
+		t.Errorf("missing too_many_column_settings error; errors=%+v", r.Errors)
+	}
+}
+
+func TestValidate_TableWithinLimits_Valid(t *testing.T) {
+	tbl := &slack.TableBlock{Rows: [][]*slack.RichTextBlock{
+		make([]*slack.RichTextBlock, 3),
+		make([]*slack.RichTextBlock, 3),
+	}}
+	r := New().Validate([]slack.Block{tbl})
+	if !r.Valid {
+		t.Errorf("small table should validate; errors=%+v", r.Errors)
+	}
+}
+
+// --- Section accessory validation -------------------------------------------
+
+func TestValidate_AccessoryImageAltTextTooLong_Error(t *testing.T) {
+	acc := slack.NewAccessory(&slack.ImageBlockElement{
+		Type:    slack.METImage,
+		AltText: strings.Repeat("a", MaxImageAltTextChars+1),
+	})
+	s := slack.NewSectionBlock(
+		slack.NewTextBlockObject(slack.MarkdownType, "hi", false, false), nil, acc,
+	)
+	r := New().Validate([]slack.Block{s})
+	if !hasErrorWithCode(r, "alt_text_too_long") {
+		t.Errorf("missing alt_text_too_long error for accessory; errors=%+v", r.Errors)
+	}
+}
+
+func TestValidate_AccessoryButtonTextTooLong_Error(t *testing.T) {
+	acc := slack.NewAccessory(&slack.ButtonBlockElement{
+		Type: slack.METButton,
+		Text: btnText(strings.Repeat("b", MaxButtonTextChars+1)),
+	})
+	s := slack.NewSectionBlock(
+		slack.NewTextBlockObject(slack.MarkdownType, "hi", false, false), nil, acc,
+	)
+	r := New().Validate([]slack.Block{s})
+	if !hasErrorWithCode(r, "button_text_too_long") {
+		t.Errorf("missing button_text_too_long error for accessory; errors=%+v", r.Errors)
 	}
 }
 

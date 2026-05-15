@@ -247,7 +247,7 @@ func TestConvertTool_PreviewURLEnabled_ReturnsBuilderURL(t *testing.T) {
 	r := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
 		Markdown:         "simple body",
 		Mode:             "rich_text",
-		ReturnPreviewURL: true,
+		ReturnPreviewURL: boolPtr(true),
 	})
 
 	var out ConvertOutput
@@ -255,6 +255,42 @@ func TestConvertTool_PreviewURLEnabled_ReturnsBuilderURL(t *testing.T) {
 
 	if !strings.HasPrefix(out.PreviewURL, "https://app.slack.com/block-kit-builder/") {
 		t.Errorf("preview URL = %q, want Block Kit Builder prefix", out.PreviewURL)
+	}
+}
+
+func TestConvertTool_PreviewURLDisabled_OmitsBuilderURL(t *testing.T) {
+	session, cleanup := newTestServer(t)
+	defer cleanup()
+
+	r := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
+		Markdown:         "simple body",
+		Mode:             "rich_text",
+		ReturnPreviewURL: boolPtr(false),
+	})
+
+	var out ConvertOutput
+	extractStructured(t, r, &out)
+
+	if out.PreviewURL != "" {
+		t.Errorf("preview URL = %q, want empty when return_preview_url=false", out.PreviewURL)
+	}
+}
+
+func TestConvertTool_PreviewURLDefault_IncludedWhenOmitted(t *testing.T) {
+	session, cleanup := newTestServer(t)
+	defer cleanup()
+
+	// ReturnPreviewURL omitted (nil) — the default is to include the URL.
+	r := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
+		Markdown: "simple body",
+		Mode:     "rich_text",
+	})
+
+	var out ConvertOutput
+	extractStructured(t, r, &out)
+
+	if !strings.HasPrefix(out.PreviewURL, "https://app.slack.com/block-kit-builder/") {
+		t.Errorf("preview URL = %q, want it included by default", out.PreviewURL)
 	}
 }
 
@@ -402,5 +438,222 @@ func TestSplitTool_OverLimit_SplitsIntoChunks(t *testing.T) {
 	extractStructured(t, r, &out)
 	if out.ChunkCount != 2 {
 		t.Errorf("expected 2 chunks for 60 blocks; got %d", out.ChunkCount)
+	}
+}
+
+// --- tool metadata / hygiene ------------------------------------------------
+
+func TestTools_AllAdvertiseReadOnlyAnnotations(t *testing.T) {
+	session, cleanup := newTestServer(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	res, err := session.ListTools(ctx, &mcp.ListToolsParams{})
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	if len(res.Tools) == 0 {
+		t.Fatal("no tools registered")
+	}
+	for _, tool := range res.Tools {
+		if tool.Annotations == nil {
+			t.Errorf("tool %q has no annotations", tool.Name)
+			continue
+		}
+		if !tool.Annotations.ReadOnlyHint {
+			t.Errorf("tool %q should advertise readOnlyHint=true", tool.Name)
+		}
+		if tool.Annotations.Title == "" {
+			t.Errorf("tool %q has no annotation title", tool.Name)
+		}
+	}
+}
+
+func TestConvertTool_InvalidSplit_ReturnsError(t *testing.T) {
+	session, cleanup := newTestServer(t)
+	defer cleanup()
+
+	r := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
+		Markdown: "hello",
+		Split:    "sideways",
+	})
+	if !r.IsError {
+		t.Error("expected an error result for an unknown split strategy")
+	}
+}
+
+func TestValidateTool_ModalSurface_Allows100Blocks(t *testing.T) {
+	session, cleanup := newTestServer(t)
+	defer cleanup()
+
+	blocks := make([]any, 100)
+	for i := range blocks {
+		blocks[i] = map[string]any{"type": "divider"}
+	}
+
+	// Default (message) surface rejects 100 blocks.
+	rMsg := callTool(t, session, "validate_block_kit", ValidateInput{Blocks: blocks})
+	var outMsg ValidateOutput
+	extractStructured(t, rMsg, &outMsg)
+	if outMsg.Valid {
+		t.Error("100 blocks should be invalid for the default message surface")
+	}
+
+	// Modal surface accepts 100 blocks.
+	rModal := callTool(t, session, "validate_block_kit", ValidateInput{
+		Blocks:  blocks,
+		Surface: "modal",
+	})
+	var outModal ValidateOutput
+	extractStructured(t, rModal, &outModal)
+	if !outModal.Valid {
+		t.Errorf("100 blocks should be valid for a modal; errors=%+v", outModal.Errors)
+	}
+}
+
+func TestValidateTool_InvalidSurface_ReturnsError(t *testing.T) {
+	session, cleanup := newTestServer(t)
+	defer cleanup()
+
+	r := callTool(t, session, "validate_block_kit", ValidateInput{
+		Blocks:  []any{map[string]any{"type": "divider"}},
+		Surface: "spaceship",
+	})
+	if !r.IsError {
+		t.Error("expected an error result for an unknown surface")
+	}
+}
+
+// --- block_kit_to_markdown ---------------------------------------------------
+
+func TestReverseTool_RoundTrip_RecoversContent(t *testing.T) {
+	session, cleanup := newTestServer(t)
+	defer cleanup()
+
+	// Convert markdown to blocks, then convert the blocks back.
+	conv := callTool(t, session, "convert_markdown_to_block_kit", ConvertInput{
+		Markdown: "Some **bold** text.\n\n- a\n- b\n",
+		Mode:     "rich_text",
+	})
+	var convOut ConvertOutput
+	extractStructured(t, conv, &convOut)
+
+	rev := callTool(t, session, "block_kit_to_markdown", ReverseInput{Blocks: convOut.Blocks})
+	var revOut ReverseOutput
+	extractStructured(t, rev, &revOut)
+
+	for _, want := range []string{"**bold**", "- a", "- b"} {
+		if !strings.Contains(revOut.Markdown, want) {
+			t.Errorf("reverse output missing %q; got:\n%s", want, revOut.Markdown)
+		}
+	}
+}
+
+func TestReverseTool_ActionsBlock_ReportsWarning(t *testing.T) {
+	session, cleanup := newTestServer(t)
+	defer cleanup()
+
+	blocks := []any{
+		map[string]any{
+			"type": "actions",
+			"elements": []any{
+				map[string]any{
+					"type": "button",
+					"text": map[string]any{"type": "plain_text", "text": "Click"},
+				},
+			},
+		},
+	}
+	r := callTool(t, session, "block_kit_to_markdown", ReverseInput{Blocks: blocks})
+	var out ReverseOutput
+	extractStructured(t, r, &out)
+	if len(out.Warnings) == 0 {
+		t.Error("expected a warning when reversing an actions block")
+	}
+}
+
+// --- resources & prompts -----------------------------------------------------
+
+func TestResources_Cheatsheet_ListedAndReadable(t *testing.T) {
+	session, cleanup := newTestServer(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	list, err := session.ListResources(ctx, &mcp.ListResourcesParams{})
+	if err != nil {
+		t.Fatalf("ListResources: %v", err)
+	}
+	var found bool
+	for _, r := range list.Resources {
+		if r.URI == cheatsheetURI {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("cheat-sheet resource %q not listed", cheatsheetURI)
+	}
+
+	read, err := session.ReadResource(ctx, &mcp.ReadResourceParams{URI: cheatsheetURI})
+	if err != nil {
+		t.Fatalf("ReadResource: %v", err)
+	}
+	if len(read.Contents) == 0 || !strings.Contains(read.Contents[0].Text, "Block Kit") {
+		t.Errorf("cheat-sheet content looks wrong: %+v", read.Contents)
+	}
+}
+
+func TestPrompts_FormatForSlack_ListedAndRenders(t *testing.T) {
+	session, cleanup := newTestServer(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	list, err := session.ListPrompts(ctx, &mcp.ListPromptsParams{})
+	if err != nil {
+		t.Fatalf("ListPrompts: %v", err)
+	}
+	var found bool
+	for _, p := range list.Prompts {
+		if p.Name == formatForSlackPromptName {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("prompt %q not listed", formatForSlackPromptName)
+	}
+
+	got, err := session.GetPrompt(ctx, &mcp.GetPromptParams{
+		Name:      formatForSlackPromptName,
+		Arguments: map[string]string{"text": "release notes for v2"},
+	})
+	if err != nil {
+		t.Fatalf("GetPrompt: %v", err)
+	}
+	if len(got.Messages) == 0 {
+		t.Fatal("prompt returned no messages")
+	}
+	tc, ok := got.Messages[0].Content.(*mcp.TextContent)
+	if !ok || !strings.Contains(tc.Text, "release notes for v2") {
+		t.Errorf("prompt message did not embed the argument: %+v", got.Messages[0].Content)
+	}
+}
+
+func TestPrompts_FormatForSlack_MissingText_Errors(t *testing.T) {
+	session, cleanup := newTestServer(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if _, err := session.GetPrompt(ctx, &mcp.GetPromptParams{
+		Name:      formatForSlackPromptName,
+		Arguments: map[string]string{},
+	}); err == nil {
+		t.Error("expected an error when the required 'text' argument is missing")
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/slack-go/slack"
 	"github.com/yuin/goldmark/ast"
@@ -102,10 +104,18 @@ func (w *walker) handleHeading(h *ast.Heading) error {
 		return nil
 	}
 
-	mrkdwnText := "*" + escapeMrkdwnEmphasis(text) + "*"
-	if len(mrkdwnText) > MaxSectionTextChars {
-		mrkdwnText = mrkdwnText[:MaxSectionTextChars-1] + "*"
-	}
+	// A section.mrkdwn field IS interpreted by Slack, so an unescaped
+	// `<!channel>` / `<@U…>` in an h2-h6 heading (or any heading routed to
+	// this fallback) would broadcast or ping the workspace.
+	// escapeMrkdwnEmphasis only defangs `* _ ~ \`` — it does NOT cover the
+	// `< > &` control characters. Entity-escape here exactly like the
+	// markdown_block emitter. See .claude/rules/security.md.
+	body := escapeBroadcasts(escapeMrkdwnEmphasis(text), w.opts)
+	// Reserve 2 bytes for the `*…*` wrap. truncateMrkdwnBody cuts on a
+	// UTF-8 rune boundary and never leaves a dangling `\` (which would
+	// escape the closing `*`) or a half-written HTML entity.
+	body = truncateMrkdwnBody(body, MaxSectionTextChars-2)
+	mrkdwnText := "*" + body + "*"
 	section := slack.NewSectionBlock(
 		slack.NewTextBlockObject(slack.MarkdownType, mrkdwnText, false, false),
 		nil, nil,
@@ -207,11 +217,14 @@ func (w *walker) handleBlockquote(bq *ast.Blockquote) error {
 			}
 		default:
 			// Unknown block kind in a quote: keep its content as plain text
-			// in the current buffer so nothing is silently dropped.
+			// in the current buffer so nothing is silently dropped. This
+			// builds a text element directly (bypassing the inline
+			// pipeline), so entity-escape here for broadcast safety.
 			text := extractPlainText(c, w.source)
 			if text == "" {
 				continue
 			}
+			text = escapeBroadcasts(text, w.opts)
 			if len(pending) > 0 {
 				pending = append(pending, slack.NewRichTextSectionTextElement(" ", nil))
 			}
@@ -256,6 +269,10 @@ func (w *walker) handleFallback(node ast.Node) error {
 	if text == "" {
 		return nil
 	}
+	// This builds a text element directly from raw source bytes, bypassing
+	// the inline pipeline's sanitizer — entity-escape here so a stray
+	// `<!channel>` in an unknown/HTML block cannot broadcast.
+	text = escapeBroadcasts(text, w.opts)
 	rt := slack.NewRichTextBlock(
 		w.nextBlockID(),
 		slack.NewRichTextSection(
@@ -418,4 +435,68 @@ func escapeMrkdwnEmphasis(s string) string {
 		b.WriteRune(r)
 	}
 	return b.String()
+}
+
+// escapeBroadcasts entity-escapes the three Slack control characters
+// (`< > &`) in text destined for any interpreted Slack text field
+// (section.mrkdwn, rich_text text elements). It honours the same option
+// gate as the markdown_block emitter and the rich_text sanitizer pipeline:
+// AllowBroadcasts bypasses escaping entirely; PreserveMentionTokens keeps
+// the four trusted typed-token shapes intact while still escaping
+// catastrophic broadcasts; otherwise every `< > &` is escaped.
+//
+// Use this for any code path that builds a text element directly instead
+// of routing through renderInlinesWithOpts. See .claude/rules/security.md.
+func escapeBroadcasts(s string, opts Options) string {
+	switch {
+	case opts.AllowBroadcasts:
+		return s
+	case opts.PreserveMentionTokens:
+		return escapePreservingTokens(s)
+	default:
+		return entityEscape(s)
+	}
+}
+
+// truncateMrkdwnBody shortens an already-escaped mrkdwn body so it fits in
+// max bytes, without (a) cutting inside a UTF-8 rune, (b) leaving a
+// dangling unpaired backslash escape (which would consume the closing `*`
+// of a bold wrap), or (c) leaving a half-written HTML entity such as a cut
+// `&amp;`. Headings long enough to need this are pathological LLM output;
+// the goal is only to keep the result valid, not pretty.
+func truncateMrkdwnBody(body string, max int) string {
+	if max < 0 {
+		max = 0
+	}
+	if len(body) <= max {
+		return body
+	}
+	cut := max
+	// Back up to a UTF-8 rune boundary.
+	for cut > 0 && !utf8.RuneStart(body[cut]) {
+		cut--
+	}
+	// Drop a trailing unpaired backslash run: an odd count would escape
+	// whatever follows (the closing `*`).
+	for cut > 0 && trailingBackslashes(body[:cut])%2 == 1 {
+		cut--
+	}
+	// Drop a half-written trailing HTML entity. Entities emitted by
+	// entityEscape are short and `;`-terminated, so a trailing `&` with no
+	// following `;` means the cut landed mid-entity.
+	if amp := strings.LastIndexByte(body[:cut], '&'); amp >= 0 {
+		if !strings.Contains(body[amp:cut], ";") {
+			cut = amp
+		}
+	}
+	return body[:cut]
+}
+
+// trailingBackslashes counts the run of `\` bytes at the end of s.
+func trailingBackslashes(s string) int {
+	n := 0
+	for i := len(s) - 1; i >= 0 && s[i] == '\\'; i-- {
+		n++
+	}
+	return n
 }

@@ -60,16 +60,38 @@ Walks goldmark's AST and emits `[]slack.Block`. Files:
   so both modes benefit. Known limitation: not AST-aware at pre-parse
   time, so `<url|label>` inside a code span is still rewritten.
 
+### `internal/converter/` (cont.)
+
+- `options.go` also carries `MaxNestingDepth` (default 100).
+  `ConvertWithWarnings` runs an iterative DFS (`maxASTDepth` in
+  `renderer.go`) after the parse and rejects over-depth input with
+  `ErrInputTooDeeplyNested` — `MaxInputBytes` bounds bytes, not the
+  structural depth that drives the recursive block/inline walkers.
+
+### `internal/reverse/`
+
+The inverse of the converter: `ToMarkdown([]slack.Block) → (markdown,
+warnings, error)`. Best-effort and lossy — Block Kit can express
+styling and interactive elements (buttons, accessories, colors) with no
+Markdown equivalent. Every lossy decision is recorded in `warnings`;
+warnings are deduplicated by message. No dependency on the converter.
+Wired into the `block_kit_to_markdown` MCP tool and re-exported as
+`block_kit.BlockKitToMarkdown`.
+
 ### `internal/validator/`
 
 Hand-rolled validator (no external dep — `go-playground/validator` was
 considered but not adopted; the constraint set is small enough that
 struct-tag indirection adds more reading cost than it saves).
 
-- `validator.go` — single file. Six cross-block rules (50-block ceiling,
+- `validator.go` — single file. Cross-block rules (50/100-block ceiling,
   unique block_id, multiple-tables rule, markdown-block 12k cumulative,
-  per-block dispatch). Per-block validators for section/header/image/
-  actions. `ValidateStrict()` adds deprecated-pattern flagging.
+  per-block dispatch). Per-block validators for section (incl.
+  accessory), header, image (incl. title), actions/buttons, context,
+  and table. `Validate` defaults to the 50-block message ceiling;
+  `ValidateForSurface(blocks, Surface)` raises it to 100 for
+  `SurfaceModal` / `SurfaceHomeTab`. `NewStrict()` adds
+  deprecated-pattern flagging.
 
 ### `internal/splitter/`
 
@@ -95,7 +117,9 @@ file is a small handler that translates between MCP wire types and the
 internal packages.
 
 - `server.go` — `New(version) → *Server` constructs the MCP server,
-  registers all five tools, exposes `RunStdio(ctx)`.
+  registers all six tools plus the cheat-sheet resource and the
+  `format_for_slack` prompt, exposes `RunStdio(ctx)`. All tools carry
+  read-only MCP annotations via `readOnlyToolAnnotations`.
 - `http.go` — `RunHTTP` / `RunSSE`. Shares one `*mcp.Server` across
   sessions (idiomatic per SDK docs). Hardened wrapping `http.Server`
   (ReadHeaderTimeout, IdleTimeout, MaxHeaderBytes, MaxBytesHandler, no
@@ -113,6 +137,11 @@ internal packages.
   Configurable thresholds (default 90%) for near-limit checks.
 - `split_tool.go` — `split_blocks`. Thin wrapper over
   `internal/splitter.ChunkBlocks`.
+- `reverse_tool.go` — `block_kit_to_markdown`. Thin wrapper over
+  `internal/reverse.ToMarkdown`; reuses `decodeBlocksInput`.
+- `resources.go` — registers the `block-kit-cheatsheet` MCP resource;
+  content embedded from `cheatsheet.md` via `//go:embed`.
+- `prompts.go` — registers the `format_for_slack` MCP prompt.
 
 ### `cmd/mcp-slack-block-kit/`
 
@@ -155,7 +184,7 @@ reference for the high-traffic cases:
 | `<!channel>` / `<!here>` / `<!everyone>` literal text | text | entity-escaped (passthrough only w/ `AllowBroadcasts`, never with `PreserveMentionTokens` alone) |
 | `<@U…>` / `<#C…>` / `<!subteam^S…>` / `<!date^…\|fb>` literal text | text | entity-escaped by default; typed `rich_text_section_user` / `_channel` / `_usergroup` / `_date` w/ `PreserveMentionTokens` |
 | `@alice` (in MentionMap) | text | `rich_text_section_user` element with U… ID |
-| `[text](url)` | `*ast.Link` | rich_text: `rich_text_section_link`. markdown_block: pass-through `[text](url)`. URL bytes preserved verbatim in both. |
+| `[text](url)` | `*ast.Link` | rich_text: `rich_text_section_link`. markdown_block: pass-through `[text](url)`. URL bytes preserved verbatim in both. A Markdown link *title* (`[t](u "title")`) is dropped in rich_text mode — slack-go's `RichTextSectionLinkElement` has no title field, and Slack's schema documents none; it survives in markdown_block mode. |
 | `<https://x.com>` / `<u@x.com>` | `*ast.AutoLink` | rich_text: `rich_text_section_link` (email gets `mailto:` prefix). markdown_block: re-emitted as `[url](url)` / `[email](mailto:email)` because `<url>` is not documented as supported by Slack's markdown block. |
 | bare URL in prose | `*ast.AutoLink` (via GFM Linkify) | Same as `<https://x.com>` — Linkify produces the same AST node as an explicit autolink, so both paths handle them identically. |
 | `<URL\|label>` (Slack mrkdwn URL-form) | unrecognized by goldmark | Pre-parse `rewriteSlackURLForms` converts to CommonMark `[label](URL)` before goldmark sees it; both modes then handle as a regular Link. Slack's `markdown` block does NOT accept `<URL\|label>` natively (that form is mrkdwn-only). |
@@ -242,10 +271,12 @@ Slack workspace can click through and verify visually. Run with
 
 ## Things to never silently change
 
-- The 5-tool MCP surface (`convert_markdown_to_block_kit`,
-  `validate_block_kit`, `preview_block_kit`, `lint_block_kit`,
-  `split_blocks`). Adding tools is fine; renaming or removing breaks
-  every existing client config.
+- The 6-tool MCP surface (`convert_markdown_to_block_kit`,
+  `block_kit_to_markdown`, `validate_block_kit`, `preview_block_kit`,
+  `lint_block_kit`, `split_blocks`). Adding tools is fine; renaming or
+  removing breaks every existing client config. The `block-kit-cheatsheet`
+  resource URI (`slackblockkit://reference/cheatsheet`) and the
+  `format_for_slack` prompt name are part of the same contract.
 - The `Options` struct's field names. They appear in user-facing tool
   schemas via the SDK's `jsonschema-go` reflection. Renaming a field
   silently breaks every caller.

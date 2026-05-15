@@ -55,6 +55,7 @@ import (
 
 	"github.com/hishamkaram/mcp-slack-block-kit/internal/converter"
 	"github.com/hishamkaram/mcp-slack-block-kit/internal/preview"
+	"github.com/hishamkaram/mcp-slack-block-kit/internal/reverse"
 	"github.com/hishamkaram/mcp-slack-block-kit/internal/splitter"
 	"github.com/hishamkaram/mcp-slack-block-kit/internal/validator"
 )
@@ -85,16 +86,21 @@ const (
 // Slack-defined ceilings, exposed for callers that want to reference the
 // same constants as the converter.
 const (
-	MaxBlocksPerMessage  = converter.MaxBlocksPerMessage
-	MaxSectionTextChars  = converter.MaxSectionTextChars
-	MaxHeaderTextChars   = converter.MaxHeaderTextChars
-	MaxMarkdownBlockSum  = converter.MaxMarkdownBlockSum
-	MaxBlockIDChars      = converter.MaxBlockIDChars
-	DefaultMaxInputBytes = converter.DefaultMaxInputBytes
+	MaxBlocksPerMessage    = converter.MaxBlocksPerMessage
+	MaxSectionTextChars    = converter.MaxSectionTextChars
+	MaxHeaderTextChars     = converter.MaxHeaderTextChars
+	MaxMarkdownBlockSum    = converter.MaxMarkdownBlockSum
+	MaxBlockIDChars        = converter.MaxBlockIDChars
+	DefaultMaxInputBytes   = converter.DefaultMaxInputBytes
+	DefaultMaxNestingDepth = converter.DefaultMaxNestingDepth
 )
 
 // ErrInputTooLarge is returned when input exceeds Options.MaxInputBytes.
 var ErrInputTooLarge = converter.ErrInputTooLarge
+
+// ErrInputTooDeeplyNested is returned when the parsed markdown AST nests
+// deeper than Options.MaxNestingDepth.
+var ErrInputTooDeeplyNested = converter.ErrInputTooDeeplyNested
 
 // ErrMarkdownBlockTooLarge is returned when input is requested to be
 // emitted as a single Slack markdown block but exceeds the 12,000-char cap.
@@ -131,6 +137,17 @@ type Severity = validator.Severity
 const (
 	SeverityError   = validator.SeverityError
 	SeverityWarning = validator.SeverityWarning
+)
+
+// Surface identifies the Slack surface a payload targets. It sets the
+// block-count ceiling: messages allow 50 blocks, modals and App Home tabs
+// allow 100. Pass one to Validator.ValidateForSurface.
+type Surface = validator.Surface
+
+const (
+	SurfaceMessage = validator.SurfaceMessage
+	SurfaceModal   = validator.SurfaceModal
+	SurfaceHomeTab = validator.SurfaceHomeTab
 )
 
 // NewValidator returns a Validator that reports only Slack-published
@@ -177,3 +194,14 @@ func PreviewURLString(blocks []slack.Block) (string, error) {
 
 // BuilderHost is the canonical Block Kit Builder URL prefix.
 const BuilderHost = preview.BuilderHost
+
+// --- Reverse (Block Kit → Markdown) -----------------------------------------
+
+// BlockKitToMarkdown converts a Slack Block Kit block list back into
+// Markdown — the inverse of Converter.Convert. The conversion is
+// best-effort and lossy: Block Kit can express styling and interactive
+// elements with no Markdown equivalent. The returned warnings slice names
+// every construct that could not be represented faithfully.
+func BlockKitToMarkdown(blocks []slack.Block) (markdown string, warnings []string, err error) {
+	return reverse.ToMarkdown(blocks)
+}

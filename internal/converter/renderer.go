@@ -6,6 +6,7 @@ import (
 
 	"github.com/slack-go/slack"
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
@@ -116,6 +117,15 @@ func (r *Renderer) ConvertWithWarnings(input string) ([]slack.Block, []string, e
 		return nil, nil, fmt.Errorf("converter: goldmark returned nil AST for input of %d bytes", len(input))
 	}
 
+	// Reject pathologically deep input before any recursive walk. The byte
+	// limit above does not bound structural depth (a short payload of
+	// repeated `> ` prefixes nests thousands of levels deep). maxASTDepth
+	// is iterative, so computing it is itself safe on hostile input.
+	if d := maxASTDepth(root); d > r.opts.MaxNestingDepth {
+		return nil, nil, fmt.Errorf("%w: AST depth %d (limit %d)",
+			ErrInputTooDeeplyNested, d, r.opts.MaxNestingDepth)
+	}
+
 	if r.opts.Mode == ModeMarkdownBlock {
 		blocks, err := r.emitMarkdownBlock(root, src)
 		return blocks, nil, err
@@ -146,6 +156,30 @@ func (r *Renderer) ConvertWithWarnings(input string) ([]slack.Block, []string, e
 		return nil, nil, err
 	}
 	return w.blocks, warnings, nil
+}
+
+// maxASTDepth returns the depth of the deepest path in the goldmark AST
+// rooted at root (root itself counts as depth 1). It uses an explicit
+// stack rather than recursion so it cannot itself overflow on the very
+// hostile, deeply-nested input it exists to detect.
+func maxASTDepth(root ast.Node) int {
+	type frame struct {
+		node  ast.Node
+		depth int
+	}
+	maxDepth := 0
+	stack := []frame{{root, 1}}
+	for len(stack) > 0 {
+		f := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if f.depth > maxDepth {
+			maxDepth = f.depth
+		}
+		for c := f.node.FirstChild(); c != nil; c = c.NextSibling() {
+			stack = append(stack, frame{node: c, depth: f.depth + 1})
+		}
+	}
+	return maxDepth
 }
 
 // formatNestedPatternWarning produces a single, deterministic warning

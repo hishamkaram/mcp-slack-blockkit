@@ -15,6 +15,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.3.0] - 2026-05-15
+
+### Security
+- **converter**: h2–h6 headings — and any heading routed to the
+  `section.mrkdwn` fallback (a long h1, or an h1 containing a
+  link/image/inline code) — now entity-escape `<`, `>`, `&` in the
+  heading text. The fallback previously escaped only the emphasis
+  markers `* _ ~ \``, so a heading such as `## <!channel>` in
+  `rich_text` mode (or `auto` when the input routes to rich_text
+  decomposition) emitted a live `<!channel>` broadcast. The
+  `handleFallback` and blockquote unknown-child paths, which also build
+  text elements directly, were hardened the same way.
+  `allow_broadcasts` and `preserve_mention_tokens` are still honored.
+
+### Added
+- **server**: new `block_kit_to_markdown` MCP tool — the inverse of
+  `convert_markdown_to_block_kit`. Best-effort and lossy; constructs
+  with no Markdown equivalent (buttons, accessories, colors) are
+  approximated and reported in `warnings`.
+- **server**: all six tools now advertise MCP tool annotations
+  (`readOnlyHint`, `openWorldHint`, and a human-readable title).
+- **server**: a `block-kit-cheatsheet` MCP resource documenting the
+  conversion modes, supported/unsupported Markdown, Slack's documented
+  limits, and the mention-safety model.
+- **server**: a `format_for_slack` MCP prompt.
+- **validator**: per-element rules for buttons (text/value/url/action_id
+  lengths), context blocks (≤10 elements), table blocks (≤100 rows, ≤20
+  columns, ≤20 column_settings), image-block titles (≤2000 chars), and
+  section accessories.
+- **validator**: surface-aware validation — `ValidateForSurface` plus a
+  `surface` input on `validate_block_kit` / `lint_block_kit` raise the
+  block ceiling from 50 (messages) to 100 (modals, App Home tabs).
+- **converter**: `Options.MaxNestingDepth` (default 100) rejects
+  pathologically deep input with the new `ErrInputTooDeeplyNested`
+  sentinel — `MaxInputBytes` bounds bytes but not structural depth.
+- **block_kit**: re-exports `BlockKitToMarkdown`, the `Surface` type and
+  `SurfaceMessage`/`SurfaceModal`/`SurfaceHomeTab` constants,
+  `ErrInputTooDeeplyNested`, and `DefaultMaxNestingDepth`.
+
+### Changed
+- **server**: `convert_markdown_to_block_kit`'s `return_preview_url` is
+  now a genuine opt-out — pass `false` to skip preview-URL generation
+  (the field is a nullable bool, so omitting it still defaults to true).
+- **server**: `convert_markdown_to_block_kit` rejects an unknown `split`
+  value with a clear error instead of silently ignoring it.
+- **server**: the HTTP and SSE transports log a warning when bound to a
+  non-loopback address with no bearer token configured.
+- **deps**: `slack-go/slack` v0.23.0 → v0.23.1.
+
+### Fixed
+- **splitter**: `SplitText` no longer cuts inside a multi-byte UTF-8
+  rune when a single un-breakable token (a long CJK run, a non-ASCII
+  URL) exceeds the limit — the hard-cut now steps back to the nearest
+  rune boundary. The fuzz target gained multibyte seeds and a
+  `utf8.ValidString` invariant.
+- **converter**: the long-heading `section.mrkdwn` fallback truncation
+  is now rune-safe and strips a dangling backslash that could otherwise
+  escape the closing `*` and leave the bold run unterminated.
+
+---
+
 ## [0.2.1] - 2026-05-13
 
 ### Fixed
@@ -230,7 +291,8 @@ cosign verify-blob \
 - Slack Block Kit Builder URLs above ~8 KiB get unreliable in
   browsers/Slack — the preview tool flags those as `Truncated: true`.
 
-[Unreleased]: https://github.com/hishamkaram/mcp-slack-block-kit/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/hishamkaram/mcp-slack-block-kit/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.3.0
 [0.2.1]: https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.2.1
 [0.2.0]: https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.2.0
 [0.1.0]: https://github.com/hishamkaram/mcp-slack-block-kit/releases/tag/v0.1.0

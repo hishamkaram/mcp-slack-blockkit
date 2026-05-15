@@ -3,6 +3,7 @@ package splitter
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // --- Pass-through ------------------------------------------------------------
@@ -187,6 +188,13 @@ func FuzzSplitText(f *testing.F) {
 	f.Add(strings.Repeat("hello ", 200), 50, 10)
 	f.Add("aaaaaa", 3, 1)
 	f.Add("", 100, 10)
+	// Multibyte seeds: an un-breakable token of 4-byte runes with no ASCII
+	// whitespace forces the pathological hard-cut path. These would have
+	// caught the mid-rune splitting bug.
+	f.Add("x🎉x🎉x🎉x🎉x", 8, 1)
+	f.Add(strings.Repeat("🎉", 50), 20, 3)
+	f.Add("日本語のテキストはスペースがない", 10, 2)
+	f.Add("café résumé naïve", 7, 2)
 	f.Fuzz(func(t *testing.T, s string, maxChars, margin int) {
 		// Bound input sizes so fuzzing terminates predictably.
 		if maxChars > 1000 || maxChars < -10 {
@@ -227,7 +235,49 @@ func FuzzSplitText(f *testing.F) {
 					maxChars, chunkLens(out))
 			}
 		}
+
+		// Invariant 4: when the input is valid UTF-8 and maxChars leaves
+		// room for a full 4-byte rune, no chunk may end mid-rune. (With
+		// maxChars < 4 a single wide rune genuinely cannot be placed, so
+		// an invalid fragment is unavoidable and excluded here.)
+		if utf8.ValidString(s) && maxChars >= 4 {
+			for i, c := range out {
+				if !utf8.ValidString(c) {
+					t.Errorf("chunk %d is not valid UTF-8: %q (input %q, maxChars=%d)",
+						i, c, truncate(s, 50), maxChars)
+				}
+			}
+		}
 	})
+}
+
+// TestSplitText_MultibyteToken_NoMidRuneCut is the direct regression test
+// for the pathological hard-cut path: a token of 4-byte runes with no
+// ASCII whitespace must still split on rune boundaries.
+func TestSplitText_MultibyteToken_NoMidRuneCut(t *testing.T) {
+	cases := []struct {
+		name     string
+		in       string
+		maxChars int
+		margin   int
+	}{
+		{"emoji run", strings.Repeat("🎉", 20), 10, 2},
+		{"cjk run", "日本語のテキストはスペースがない文字列", 12, 3},
+		{"mixed ascii multibyte", "abc🎉def🎉ghi", 8, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := SplitText(tc.in, tc.maxChars, tc.margin)
+			for i, c := range out {
+				if !utf8.ValidString(c) {
+					t.Errorf("chunk %d ends mid-rune: %q", i, c)
+				}
+			}
+			if got := Concat(out); got != tc.in {
+				t.Errorf("round-trip lost content: got %q want %q", got, tc.in)
+			}
+		})
+	}
 }
 
 func truncate(s string, n int) string {

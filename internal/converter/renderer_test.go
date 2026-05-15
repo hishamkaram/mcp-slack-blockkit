@@ -257,6 +257,46 @@ func TestConvert_DefaultMaxInputBytes_EnforcesCeiling(t *testing.T) {
 	}
 }
 
+func TestConvert_DeeplyNestedInput_Rejected(t *testing.T) {
+	r, err := New(DefaultOptions())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	// 400 nested blockquotes — small in bytes, pathological in depth.
+	deep := strings.Repeat("> ", 400) + "boom"
+	_, err = r.Convert(deep)
+	if err == nil {
+		t.Fatal("Convert accepted pathologically deep input")
+	}
+	if !errors.Is(err, ErrInputTooDeeplyNested) {
+		t.Errorf("error %v is not ErrInputTooDeeplyNested", err)
+	}
+}
+
+func TestConvert_ModestNesting_Accepted(t *testing.T) {
+	r, err := New(DefaultOptions())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	// A few levels of nested lists/quotes is well within the depth limit.
+	input := "> quote\n>\n> - a\n>   - b\n>     - c\n"
+	if _, err := r.Convert(input); err != nil {
+		t.Errorf("modestly nested input rejected: %v", err)
+	}
+}
+
+func TestConvert_MaxNestingDepthZero_DefaultsTo100(t *testing.T) {
+	opts := DefaultOptions()
+	opts.MaxNestingDepth = 0 // should normalize to DefaultMaxNestingDepth
+	r, err := New(opts)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := r.Options().MaxNestingDepth; got != DefaultMaxNestingDepth {
+		t.Errorf("MaxNestingDepth=%d, want default %d", got, DefaultMaxNestingDepth)
+	}
+}
+
 func TestRenderer_OptionsCopy_NotAlias(t *testing.T) {
 	// Defensive: Options() should return a value-copy so callers can't mutate
 	// the renderer's internal state.

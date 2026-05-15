@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/slack-go/slack"
 )
@@ -185,6 +186,105 @@ func TestHandleHeading_BoldFallback_EscapesEmphasisChars(t *testing.T) {
 	want := `*Pricing: 10\*x + 5\_y*`
 	if sec.Text.Text != want {
 		t.Errorf("bold-section text = %q, want %q", sec.Text.Text, want)
+	}
+}
+
+// TestHandleHeading_BoldFallback_EscapesBroadcasts is the security
+// regression: an h2-h6 heading routes to a section.mrkdwn block, which
+// Slack DOES interpret. A literal `<!channel>` / `<@U…>` there would
+// broadcast or ping the workspace, so it must be entity-escaped.
+func TestHandleHeading_BoldFallback_EscapesBroadcasts(t *testing.T) {
+	cases := []struct{ name, in, want string }{
+		{"channel broadcast", "## <!channel>", `*&lt;!channel&gt;*`},
+		{"here broadcast", "### <!here>", `*&lt;!here&gt;*`},
+		{"user mention", "## ping <@U012AB3CD>", `*ping &lt;@U012AB3CD&gt;*`},
+		{"ampersand", "## AT&T deal", `*AT&amp;T deal*`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			blocks, _ := renderForTest(t, Options{}, tc.in)
+			sec, ok := blocks[0].(*slack.SectionBlock)
+			if !ok {
+				t.Fatalf("got %T, want *slack.SectionBlock", blocks[0])
+			}
+			if sec.Text.Text != tc.want {
+				t.Errorf("fallback text = %q, want %q", sec.Text.Text, tc.want)
+			}
+		})
+	}
+}
+
+// TestHandleHeading_BoldFallback_AllowBroadcasts_Passthrough confirms the
+// opt-out still works: with AllowBroadcasts the tokens pass through raw.
+func TestHandleHeading_BoldFallback_AllowBroadcasts_Passthrough(t *testing.T) {
+	blocks, _ := renderForTest(t, Options{AllowBroadcasts: true}, "## <!channel>")
+	sec := blocks[0].(*slack.SectionBlock)
+	if sec.Text.Text != "*<!channel>*" {
+		t.Errorf("AllowBroadcasts fallback text = %q, want %q", sec.Text.Text, "*<!channel>*")
+	}
+}
+
+// TestHandleHeading_BoldFallback_PreserveMentionTokens confirms a trusted
+// typed token survives the fallback escape while a catastrophic broadcast
+// in the same mode still escapes.
+func TestHandleHeading_BoldFallback_PreserveMentionTokens(t *testing.T) {
+	t.Run("typed token passes through", func(t *testing.T) {
+		blocks, _ := renderForTest(t, Options{PreserveMentionTokens: true}, "## see <@U012AB3CD>")
+		sec := blocks[0].(*slack.SectionBlock)
+		if !strings.Contains(sec.Text.Text, "<@U012AB3CD>") {
+			t.Errorf("trusted token should survive; got %q", sec.Text.Text)
+		}
+	})
+	t.Run("broadcast still escapes", func(t *testing.T) {
+		blocks, _ := renderForTest(t, Options{PreserveMentionTokens: true}, "## <!channel>")
+		sec := blocks[0].(*slack.SectionBlock)
+		if strings.Contains(sec.Text.Text, "<!channel>") {
+			t.Errorf("broadcast must still escape; got %q", sec.Text.Text)
+		}
+	})
+}
+
+// TestHandleHeading_H1Broadcast_PlainTextHeader documents that an h1 with a
+// broadcast token stays a plain_text header block: Slack `plain_text`
+// objects are literal and do not parse mention/broadcast syntax, so the
+// token is shown verbatim and entity-escaping it would display `&lt;`.
+func TestHandleHeading_H1Broadcast_PlainTextHeader(t *testing.T) {
+	blocks, _ := renderForTest(t, Options{}, "# <!channel>")
+	hdr, ok := blocks[0].(*slack.HeaderBlock)
+	if !ok {
+		t.Fatalf("got %T, want *slack.HeaderBlock", blocks[0])
+	}
+	if hdr.Text.Type != slack.PlainTextType {
+		t.Errorf("header must be plain_text, got %s", hdr.Text.Type)
+	}
+	if hdr.Text.Text != "<!channel>" {
+		t.Errorf("plain_text header should keep literal token, got %q", hdr.Text.Text)
+	}
+}
+
+// TestHandleHeading_BoldFallback_LongHeadingTruncatesRuneSafe verifies the
+// fallback truncation never produces invalid UTF-8 and never strands a
+// dangling `\` that would consume the closing `*`.
+func TestHandleHeading_BoldFallback_LongHeadingTruncatesRuneSafe(t *testing.T) {
+	heading := "## " + strings.Repeat("世界", MaxSectionTextChars) // far over 3000 bytes
+	blocks, _ := renderForTest(t, Options{}, heading)
+	sec, ok := blocks[0].(*slack.SectionBlock)
+	if !ok {
+		t.Fatalf("got %T, want *slack.SectionBlock", blocks[0])
+	}
+	got := sec.Text.Text
+	if len(got) > MaxSectionTextChars {
+		t.Errorf("fallback text is %d bytes; max %d", len(got), MaxSectionTextChars)
+	}
+	if !utf8.ValidString(got) {
+		t.Errorf("fallback text is not valid UTF-8: %q", got[:80])
+	}
+	if !strings.HasPrefix(got, "*") || !strings.HasSuffix(got, "*") {
+		t.Errorf("fallback must stay bold-wrapped; got prefix/suffix of %q", got)
+	}
+	// The closing `*` must not be escaped by a stranded backslash.
+	if strings.HasSuffix(got, `\*`) {
+		t.Errorf("closing * is escaped by a dangling backslash: %q", got[len(got)-10:])
 	}
 }
 

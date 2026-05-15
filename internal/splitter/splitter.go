@@ -40,9 +40,11 @@ import "strings"
 //   - When safetyMargin ≥ maxChars or maxChars ≤ 0, falls back to a hard
 //     mid-word cut at maxChars. Pathological config, but doesn't panic.
 //   - When a single un-breakable token is itself longer than maxChars
-//     (e.g. a 5000-char URL with no whitespace), we hard-cut at maxChars
-//     for that token and continue. There is no clean alternative that
-//     preserves content; callers should validate inputs before calling.
+//     (e.g. a 5000-char URL or a long CJK run with no whitespace), we
+//     hard-cut near maxChars, stepping back to the nearest UTF-8 rune
+//     boundary so no chunk ends mid-rune. There is no clean alternative
+//     that preserves content; callers should validate inputs before
+//     calling.
 func SplitText(s string, maxChars, safetyMargin int) []string {
 	if maxChars <= 0 {
 		return []string{s}
@@ -107,8 +109,28 @@ func findCut(s string, maxChars, margin int) int {
 		return p
 	}
 
-	// 5. Pathological fallback: one un-breakable token, hard-cut at maxChars.
-	return maxChars
+	// 5. Pathological fallback: one un-breakable token. Hard-cut near
+	//    maxChars, but step back to the nearest UTF-8 rune boundary so we
+	//    never emit a chunk that ends mid-rune (invalid UTF-8). This is the
+	//    real-world case for long CJK runs and non-ASCII URLs that contain
+	//    no ASCII whitespace.
+	cut := maxChars
+	for cut > 0 && cut < len(s) && isUTF8Continuation(s[cut]) {
+		cut--
+	}
+	if cut == 0 {
+		// A single rune is itself wider than maxChars — no valid split
+		// exists. Returning maxChars (> 0) avoids an infinite loop; the
+		// byte cut is unavoidable for this degenerate config.
+		return maxChars
+	}
+	return cut
+}
+
+// isUTF8Continuation reports whether b is a UTF-8 continuation byte
+// (0b10xxxxxx) — i.e. not the first byte of a rune.
+func isUTF8Continuation(b byte) bool {
+	return b&0xC0 == 0x80
 }
 
 // lastParagraphBoundary returns the byte offset of the END of the last

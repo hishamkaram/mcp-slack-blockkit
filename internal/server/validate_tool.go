@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/slack-go/slack"
@@ -17,9 +18,10 @@ import (
 // permissive schema lets the unmarshal step on our side drive the
 // concrete-type dispatch via slack.Blocks's UnmarshalJSON.
 type ValidateInput struct {
-	Blocks  any  `json:"blocks,omitempty" jsonschema:"array of Slack Block Kit block objects to validate"`
-	Payload any  `json:"payload,omitempty" jsonschema:"alternative form: a full chat.postMessage payload object whose blocks field is validated"`
-	Strict  bool `json:"strict,omitempty" jsonschema:"if true, also reports deprecated patterns (e.g. raw mrkdwn section where rich_text is preferred) as errors"`
+	Blocks  any    `json:"blocks,omitempty" jsonschema:"array of Slack Block Kit block objects to validate"`
+	Payload any    `json:"payload,omitempty" jsonschema:"alternative form: a full chat.postMessage payload object whose blocks field is validated"`
+	Strict  bool   `json:"strict,omitempty" jsonschema:"if true, also reports deprecated patterns (e.g. raw mrkdwn section where rich_text is preferred) as errors"`
+	Surface string `json:"surface,omitempty" jsonschema:"target Slack surface, which sets the block-count ceiling: message (default, 50 blocks), modal, or home (both 100 blocks)"`
 }
 
 // ValidateOutput mirrors validator.Result. Violations carry path, code,
@@ -40,7 +42,10 @@ func (s *Server) registerValidateTool() {
 				"unique block_ids, only_one_table_allowed, markdown_block 12k cap). " +
 				"Returns structured violations with JSON paths and fix hints. " +
 				"Strict mode additionally flags deprecated patterns. Accepts either " +
-				"a `blocks` array directly or a full chat.postMessage `payload`.",
+				"a `blocks` array directly or a full chat.postMessage `payload`. " +
+				"Set surface to modal or home for the 100-block ceiling (default " +
+				"message: 50 blocks).",
+			Annotations: readOnlyToolAnnotations("Validate Block Kit"),
 		},
 		s.handleValidate,
 	)
@@ -51,6 +56,10 @@ func (s *Server) handleValidate(_ context.Context, _ *mcp.CallToolRequest, in Va
 	if err != nil {
 		return errorResult("invalid input: " + err.Error()), ValidateOutput{}, nil
 	}
+	surface, err := parseSurface(in.Surface)
+	if err != nil {
+		return errorResult("invalid input: " + err.Error()), ValidateOutput{}, nil
+	}
 
 	var v *validator.Validator
 	if in.Strict {
@@ -58,8 +67,24 @@ func (s *Server) handleValidate(_ context.Context, _ *mcp.CallToolRequest, in Va
 	} else {
 		v = validator.New()
 	}
-	r := v.Validate(blocks)
+	r := v.ValidateForSurface(blocks, surface)
 	return nil, ValidateOutput(r), nil
+}
+
+// parseSurface maps the tool input string to a validator.Surface. Empty
+// defaults to message; unknown values return an error so callers get a
+// clear signal instead of a silent fallback.
+func parseSurface(s string) (validator.Surface, error) {
+	switch s {
+	case "", string(validator.SurfaceMessage):
+		return validator.SurfaceMessage, nil
+	case string(validator.SurfaceModal):
+		return validator.SurfaceModal, nil
+	case string(validator.SurfaceHomeTab):
+		return validator.SurfaceHomeTab, nil
+	default:
+		return "", fmt.Errorf("invalid surface %q (want message, modal, or home)", s)
+	}
 }
 
 // decodeBlocksInput unwraps either a `blocks` array or a `payload` object

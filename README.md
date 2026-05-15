@@ -22,15 +22,21 @@
 
 ## What it does
 
-Five MCP tools your AI assistant can call:
+Six MCP tools your AI assistant can call:
 
 | Tool | What it does |
 |---|---|
-| **`convert_markdown_to_block_kit`** | Markdown → Block Kit JSON. Auto mode picks between Slack's new (Feb 2025) `markdown` block and full deterministic decomposition into `rich_text` / `section` / `header` / `image` / `divider`. |
-| **`validate_block_kit`** | Validates a payload against the documented Slack constraints (per-block char limits, count limits, XOR rules, `only_one_table_allowed`, the 12k-char `markdown_block` cap, etc.) with structured violations + fix hints. |
+| **`convert_markdown_to_block_kit`** | Markdown → Block Kit JSON. Auto mode picks between Slack's new (Feb 2025) `markdown` block and full deterministic decomposition into `rich_text` / `section` / `header` / `image` / `divider` / `table`. |
+| **`block_kit_to_markdown`** | The inverse — Block Kit JSON → Markdown. Best-effort and lossy; constructs with no Markdown equivalent (buttons, accessories, colors) are approximated and reported in `warnings`. |
+| **`validate_block_kit`** | Validates a payload against the documented Slack constraints (per-block char limits, count limits, button/context/table element limits, XOR rules, `only_one_table_allowed`, the 12k-char `markdown_block` cap, etc.) with structured violations + fix hints. Pass `surface` (`message` / `modal` / `home`) to set the block ceiling. |
 | **`preview_block_kit`** | Returns a Block Kit Builder URL — one click to a live visual preview in Slack's own builder. No workspace credentials needed. |
 | **`lint_block_kit`** | Warns on near-limit content, deprecated patterns, and accessibility gaps (e.g. missing image `alt_text`). Always advisory. |
 | **`split_blocks`** | Splits an oversized payload into multiple Slack-API-compliant chunks on the >50-block axis, with `only_one_table_allowed` enforcement. |
+
+The server also exposes an MCP **resource** (`block-kit-cheatsheet` — the
+conversion modes, supported Markdown, Slack limits, and mention-safety
+model) and a **prompt** (`format_for_slack`) so MCP clients can discover
+how to use the tools.
 
 Plus a **`convert` CLI** for offline testing without an MCP client.
 
@@ -43,6 +49,18 @@ Plus a **`convert` CLI** for offline testing without an MCP client.
 | **`auto`** (default) | One Slack `markdown` block when the input is short, image-free, and contains no nested-block patterns. Otherwise full `rich_text` decomposition. | Most LLM workflows — let the converter pick. |
 | **`rich_text`** | Always full decomposition into typed `rich_text` / `section` / `header` / `image` / `divider` / `table` blocks. | When you want explicit, deterministic block shapes (e.g. for downstream styling, validation, or because you don't want to delegate rendering to Slack's `markdown` parser). |
 | **`markdown_block`** | Single Slack `markdown` block — Slack's server-side parser owns the rendering. | When the input is known-good markdown and you want the smallest possible payload. Errors if input >12,000 chars. |
+| **`section_mrkdwn`** | `section` blocks with `mrkdwn` text. | Downstream consumers that need the older `section`-based shape. |
+
+### Supported Markdown
+
+Headings, bold, italic, strikethrough, inline code, fenced code blocks,
+ordered/unordered lists (including nesting), block quotes, thematic
+breaks, links, images, GFM tables, task lists, and `:emoji:` shortcodes;
+bare URLs are auto-linked. **Not** supported: footnotes and definition
+lists (emitted as plain text); raw HTML is entity-escaped to literal
+text. In `rich_text` mode, Markdown link *titles* are dropped — Slack's
+rich-text link element has no title field (they survive in
+`markdown_block` mode).
 
 ### Nested elements
 
